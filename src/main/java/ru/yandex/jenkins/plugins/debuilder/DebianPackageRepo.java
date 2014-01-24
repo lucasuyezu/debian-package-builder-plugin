@@ -9,16 +9,18 @@ public final class DebianPackageRepo {
 	private String fqdn;
 	private String incoming;
 	private String login;
+	private String password;
 	private String options;
 	private String keypath;
 
 	@DataBoundConstructor
-	public DebianPackageRepo(String name, String method, String fqdn, String incoming, String login, String options, String keypath) {
+	public DebianPackageRepo(String name, String method, String fqdn, String incoming, String login, String password, String options, String keypath) {
 		this.name = name;
 		this.method = method;
 		this.fqdn = fqdn;
 		this.incoming = incoming;
 		this.login = login;
+		this.password = password;
 		this.options = options;
 		this.keypath = keypath;
 	}
@@ -78,5 +80,13 @@ public final class DebianPackageRepo {
 	public void setKeypath(String keypath) {
 		this.keypath = keypath;
 	}
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
 
 }
