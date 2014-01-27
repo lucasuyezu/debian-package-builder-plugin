@@ -3,10 +3,7 @@
 	<f:entry title="Path to 'debian' catalog" field="pathToDebian">
 		<f:textbox />
 	</f:entry>
-	<f:entry title="${%Dry run}"  field="dryRun">
-      <f:checkbox checked="${instance.dryRun}" default="unchecked" />
-   </f:entry>
-	
+
 	<f:optionalBlock name="generateChangelog" title="Generate changelog?"
 		checked="${instance.generateChangelog}" inline="true">
 		<f:entry
@@ -15,4 +12,10 @@
 			<f:checkbox />
 		</f:entry>
 	</f:optionalBlock>
+
+	<f:advanced>
+		<f:entry title="${%Dry run}" field="dryRun">
+			<f:checkbox checked="${instance.dryRun}" default="unchecked" />
+		</f:entry>
+	</f:advanced>
 </j:jelly>
