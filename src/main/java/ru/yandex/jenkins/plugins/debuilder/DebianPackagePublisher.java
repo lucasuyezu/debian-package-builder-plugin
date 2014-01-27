@@ -53,6 +53,16 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
     private String commitMessage;
     private final boolean commitChanges;
 
+    /**
+     * Constructor with the required fields that jenkins require
+     * 
+     * @param repoId
+     *            The repo id
+     * @param commitMessage
+     *            The commit message requested by SCMs
+     * @param commitChanges
+     *            Condition required to commit the changes
+     */
     @DataBoundConstructor
     public DebianPackagePublisher(String repoId, String commitMessage, boolean commitChanges) {
         this.commitChanges = commitChanges;
@@ -64,6 +74,11 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
         }
     }
 
+    /**
+     * Get the repository object from its id
+     * 
+     * @return Repository Object
+     */
     private DebianPackageRepo getRepo() {
         for (DebianPackageRepo repo : getDescriptor().getRepositories()) {
             if (repo.getName().equals(repoId)) {
@@ -73,6 +88,13 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
         return null;
     }
 
+    /**
+     * Get the message used to commit changes an a arbitrary build
+     * 
+     * @param build
+     *            The build where the message will be extracted
+     * @return The configured message
+     */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public static String getUsedCommitMessage(AbstractBuild build) {
         DescribableList<Publisher, Descriptor<Publisher>> publishersList = ((Project) build.getProject()).getPublishersList();
@@ -85,6 +107,18 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
         return "";
     }
 
+    /**
+     * The key located inside the file debian-package-builder-keys on the root
+     * of the Jenkins Instalation is copied to the remote slave.
+     * 
+     * @param build
+     *            The build where te key will be stored
+     * @return The remote path to the key
+     * @throws IOException
+     *             If some error occurs creating the remote temp file
+     * @throws InterruptedException
+     *             If the file operations where interrupted
+     */
     private String getRemoteKeyPath(AbstractBuild<?, ?> build) throws IOException, InterruptedException {
         String keysDir = "debian-package-builder-keys";
 
@@ -97,6 +131,23 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
         return remoteKey.getRemote();
     }
 
+    /**
+     * Create a new dupload.conf prepared to upload the packages
+     * 
+     * @param filePath
+     *            Path to the dupload.conf
+     * @param build
+     *            Build that needs this configuration. The remote build path is
+     *            used to store the ssh-key used on the scpb upload method.
+     * @param runner
+     *            The runner is used to log the process
+     * @throws IOException
+     *             If some i/o error occour
+     * @throws InterruptedException
+     *             If some file process is interrupted
+     * @throws DebianizingException
+     *             If the log fail
+     */
     private void generateDuploadConf(String filePath, AbstractBuild<?, ?> build, Runner runner) throws IOException,
             InterruptedException, DebianizingException {
         String confTemplate = "package config;\n\n" + "$default_host = '${name}';\n\n" + "$cfg{'${name}'} = {\n"
@@ -204,24 +255,38 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
                         if (!DkpgTools.changesFile.validate(change, changeFile.getParent(), runner))
                             throw new DebianizingException("Debrelease failed validating '" + changeFile.getRemote() + "'");
 
+                        // TODO validate should validate fields
+                        if (change.getDistributions() == null)
+                            throw new DebianizingException("Debrelease failed no distributions found");
+
                         DuploadFTP duploadFTP = new DuploadFTP(repo.getFqdn());
                         duploadFTP.setPassword(repo.getPassword());
                         duploadFTP.setUsername(repo.getLogin());
 
                         HashMap<String, String> files = new HashMap<String, String>();
-                        for (DebChanges.ChangeFile file : change.getFiles().values()) {
-                            files.put(changeFile.getParent().getRemote() + "/" + file.getName(),
-                                    repo.getIncoming() + "/" + file.getName());
+
+                        for (String dist : change.getDistributions()) {
+
+                            if (!dist.isEmpty()) {
+                                String remotePath = repo.getIncoming() + "/" + dist + "/";
+
+                                for (DebChanges.ChangeFile file : change.getFiles().values()) {
+                                    files.put(changeFile.getParent().getRemote() + "/" + file.getName(),
+                                            remotePath + file.getName());
+                                }
+
+                                files.put(changeFile.getRemote(), remotePath + changeFile.getName());
+                            }
                         }
-                        files.put(changeFile.getRemote(), repo.getIncoming() + "/" + changeFile.getName());
+
                         if (!duploadFTP.storeFile(files, runner))
                             throw new DebianizingException("Debrelease failed uploading files");
 
                     }
-                    //TODO test if this file was uploaded in file log
-                    //TODO test if this distribution is valid
-                    //TODO search for extra announce files *.announce
-                    //TODO validated required fields
+                    // TODO test if this file was uploaded in file log
+                    // TODO test if this distribution is valid
+                    // TODO search for extra announce files *.announce
+                    // TODO validated required fields
                 }
 
                 if (wereBuilds && commitChanges) {
