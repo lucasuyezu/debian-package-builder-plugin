@@ -14,6 +14,8 @@ import hudson.model.Cause.UserIdCause;
 import hudson.model.Descriptor;
 import hudson.model.Project;
 import hudson.model.Run;
+import hudson.plugins.git.GitSCM;
+import hudson.scm.GitHack;
 import hudson.scm.SubversionHack;
 import hudson.scm.SvnClientManager;
 import hudson.scm.ChangeLogSet;
@@ -157,15 +159,17 @@ public class DebianPackageBuilder extends Builder {
     }
 
     /**
-     * Parses changelog and updates it with next version and it's changes
+     * Parses changelog from some SCM
      * 
      * @param latestVersion
      * @param runner
+     *            Runnner to log the info
      * @param build
      * @param listener
      * @param remoteDebian
      * @param launcher
      * @return
+     * 
      * @throws DebianizingException
      * @throws InterruptedException
      * @throws IOException
@@ -185,21 +189,21 @@ public class DebianPackageBuilder extends Builder {
 
         List<Change> changes;
 
-        if (!(scm instanceof SubversionSCM)) {
-            runner.announce("SCM in use is not Subversion (but <{0}> instead), defaulting to changes since last build", scm
-                    .getClass().getName());
-            changes = getChangesSinceLastBuild(runner, build);
-        } else {
-            helper.setRevision(getSVNRevision(build, (SubversionSCM) scm, runner, remoteDebian, listener));
+        if (scm instanceof SubversionSCM) {
+            helper.setRevision(getRevision(build, (SubversionSCM) scm, runner, remoteDebian, listener));
             if ("".equals(oldRevision)) {
                 runner.announce("No last revision known, using changes since last successful build to populate debian/changelog");
                 changes = getChangesSinceLastBuild(runner, build);
             } else {
                 runner.announce("Calculating changes since revision {0}.", oldRevision);
                 String ourMessage = DebianPackagePublisher.getUsedCommitMessage(build);
-                changes = getChangesFromSubversion(runner, (SubversionSCM) scm, build, remoteDebian, oldRevision,
-                        helper.getRevision(), ourMessage);
+                changes = getChangesFromSCM(runner, (SubversionSCM) scm, build, remoteDebian, oldRevision, helper.getRevision(),
+                        ourMessage);
             }
+        } else {
+            runner.announce("SCM in use is not Subversion (but <{0}> instead), defaulting to changes since last build", scm
+                    .getClass().getName());
+            changes = getChangesSinceLastBuild(runner, build);
         }
 
         return new ImmutablePair<VersionHelper, List<Change>>(helper, changes);
@@ -270,7 +274,7 @@ public class DebianPackageBuilder extends Builder {
 
     }
 
-    private String getSVNRevision(@SuppressWarnings("rawtypes") AbstractBuild build, SubversionSCM scm, Runner runner,
+    private String getRevision(@SuppressWarnings("rawtypes") AbstractBuild build, SubversionSCM scm, Runner runner,
             String remoteDebian, TaskListener listener) throws DebianizingException {
         ModuleLocation location = findOurLocation(build, scm, runner, remoteDebian);
         try {
@@ -311,7 +315,7 @@ public class DebianPackageBuilder extends Builder {
         throw new DebianizingException("Can't find module location for remoteDebian " + remoteDebian);
     }
 
-    private List<Change> getChangesFromSubversion(final Runner runner, SubversionSCM scm,
+    private List<Change> getChangesFromSCM(final Runner runner, SubversionSCM scm,
             @SuppressWarnings("rawtypes") AbstractBuild build, final String remoteDebian, String latestRevision,
             String currentRevision, final String ourMessage) throws DebianizingException {
         final List<Change> result = new ArrayList<DebianPackageBuilder.Change>();
