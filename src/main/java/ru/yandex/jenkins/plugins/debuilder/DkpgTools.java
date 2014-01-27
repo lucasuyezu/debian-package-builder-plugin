@@ -283,31 +283,58 @@ public class DkpgTools {
             return false;
         }
 
+        // TODO the validate method should validate fields
         public static boolean validate(DebChanges changes, FilePath rootDir, Runner runner) throws IOException,
                 InterruptedException {
-            if (changes == null || rootDir == null)
-                return false;
+            // TODO test messages
+            String msgPrefix = "Validating .changes parse process:";
 
-            if (changes.getFiles() == null)
+            if (changes == null || rootDir == null) {
+                runner.announce("{0} Internal error (changes or rootDir is null)!", msgPrefix);
                 return false;
+            }
+
+            if (changes.getDistributions() == null) {
+                runner.announce("{0} None distributions found.", msgPrefix);
+                return false;
+            } else if (changes.getDistributions().length < 1) {
+                runner.announce("{0} None distributions found.", msgPrefix);
+                return false;
+            }
+
+            for (String dist : changes.getDistributions()) {
+                if (dist.equals("UNRELEASED")) {
+                    runner.announce("{0} Distribution UNRELEASED found", msgPrefix);
+                    return false;
+                }
+            }
+
+            if (changes.getFiles() == null) {
+                runner.announce("{0} None file found.", msgPrefix);
+                return false;
+            }
 
             for (DebChanges.ChangeFile changeFile : changes.getFiles().values()) {
 
-                if (changeFile.getName() == null)
+                if (changeFile.getName() == null) {
+                    runner.announce("{0} File name is empty.", msgPrefix);
                     return false;
+                }
 
                 FilePath file = rootDir.child(changeFile.getName());
                 if (!validateSize(changeFile.getSize(), file)) {
-                    runner.announce("size not match");
+                    runner.announce("{0} Size of {1} not match ({2})", msgPrefix, file.getRemote(), file.length());
                     return false;
                 } else if (!validateMd5(changeFile.getMd5(), file)) {
-                    runner.announce("md5 not match: " + DigestUtils.md5(file.read()));
+                    runner.announce("{0} Md5 of {1} not match ({2})", msgPrefix, file.getRemote(), DigestUtils.md5(file.read()));
                     return false;
                 } else if (!validateSha1(changeFile.getSha1(), file)) {
-                    runner.announce("sha1 not match: " + DigestUtils.sha1Hex(file.read()));
+                    runner.announce("{0} Sha1 of {1} not match ({2})", msgPrefix, file.getRemote(),
+                            DigestUtils.sha1Hex(file.read()));
                     return false;
                 } else if (!validateSha256(changeFile.getSha256(), file)) {
-                    runner.announce("sha256 not match: "+DigestUtils.sha256Hex(file.read()));
+                    runner.announce("{0} Sha256 of {1} not match ({2}) ", msgPrefix, file.getRemote(),
+                            DigestUtils.sha256Hex(file.read()));
                     return false;
                 }
 
