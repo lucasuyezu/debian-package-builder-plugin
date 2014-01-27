@@ -14,8 +14,6 @@ import hudson.model.Cause.UserIdCause;
 import hudson.model.Descriptor;
 import hudson.model.Project;
 import hudson.model.Run;
-import hudson.plugins.git.GitSCM;
-import hudson.scm.GitHack;
 import hudson.scm.SubversionHack;
 import hudson.scm.SvnClientManager;
 import hudson.scm.ChangeLogSet;
