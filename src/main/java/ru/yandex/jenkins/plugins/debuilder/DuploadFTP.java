@@ -389,11 +389,11 @@ public class DuploadFTP {
             try {
                 InputStream input = new FileInputStream(local);
                 if (ftp.storeFile(remote, input)) {
-                    runner.announce("File '" + local + "' uploaded");
+                    runner.announce("File '" + local + "' uploaded to " + remote);
                     if (rc == null)
                         rc = true;
                 } else {
-                    runner.announce("File '" + local + "' not uploaded");
+                    runner.announce("File '" + local + "' not uploaded to " + remote);
                     rc = false;
                 }
                 runner.announce(ftp.getReplyString());
