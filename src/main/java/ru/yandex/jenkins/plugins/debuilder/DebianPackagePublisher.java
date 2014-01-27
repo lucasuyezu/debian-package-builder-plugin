@@ -224,6 +224,9 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
                 // Get the publish success
                 boolean wereBuilds = false;
 
+                if (repo.getMethod() == null)
+                    throw new DebianizingException("Repo method not found");
+
                 if (repo.getMethod().equals("scpb")) {
 
                     String duploadConfPath = "/etc/dupload.conf";
@@ -255,7 +258,6 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
                         if (!DkpgTools.changesFile.validate(change, changeFile.getParent(), runner))
                             throw new DebianizingException("Debrelease failed validating '" + changeFile.getRemote() + "'");
 
-                        // TODO validate should validate fields
                         if (change.getDistributions() == null)
                             throw new DebianizingException("Debrelease failed no distributions found");
 
@@ -265,28 +267,41 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 
                         HashMap<String, String> files = new HashMap<String, String>();
 
-                        for (String dist : change.getDistributions()) {
+                        if (repo.getIncoming().contains("$distribution$")) {
+                            runner.announce("Publishing for all distributions.");
 
-                            if (!dist.isEmpty()) {
-                                String remotePath = repo.getIncoming() + "/" + dist + "/";
+                            for (String dist : change.getDistributions()) {
 
-                                for (DebChanges.ChangeFile file : change.getFiles().values()) {
-                                    files.put(changeFile.getParent().getRemote() + "/" + file.getName(),
-                                            remotePath + file.getName());
+                                if (!dist.isEmpty()) {
+                                    String remotePath = repo.getIncoming().replace("$distribution$", dist) + "/";
+
+                                    for (DebChanges.ChangeFile file : change.getFiles().values()) {
+                                        files.put(changeFile.getParent().getRemote() + "/" + file.getName(),
+                                                remotePath + file.getName());
+                                    }
+
+                                    files.put(changeFile.getRemote(), remotePath + changeFile.getName());
                                 }
-
-                                files.put(changeFile.getRemote(), remotePath + changeFile.getName());
                             }
+                        } else {
+                            String remotePath = repo.getIncoming() + "/";
+
+                            for (DebChanges.ChangeFile file : change.getFiles().values()) {
+                                files.put(changeFile.getParent().getRemote() + "/" + file.getName(), remotePath + file.getName());
+                            }
+
+                            files.put(changeFile.getRemote(), remotePath + changeFile.getName());
                         }
 
                         if (!duploadFTP.storeFile(files, runner))
                             throw new DebianizingException("Debrelease failed uploading files");
 
+                        wereBuilds = true;
+
                     }
                     // TODO test if this file was uploaded in file log
                     // TODO test if this distribution is valid
                     // TODO search for extra announce files *.announce
-                    // TODO validated required fields
                 }
 
                 if (wereBuilds && commitChanges) {
@@ -295,6 +310,12 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
                 }
 
             }
+        } catch (InterruptedException e) {
+            logger.println(MessageFormat.format(DebianPackageBuilder.ABORT_MESSAGE, PREFIX, e.getMessage()));
+            build.setResult(Result.UNSTABLE);
+        } catch (DebianizingException e) {
+            logger.println(MessageFormat.format(DebianPackageBuilder.ABORT_MESSAGE, PREFIX, e.getMessage()));
+            build.setResult(Result.UNSTABLE);
         } catch (Exception e) {
             logger.println(MessageFormat.format(DebianPackageBuilder.ABORT_MESSAGE, PREFIX, ExceptionUtils.getStackTrace(e)));
             build.setResult(Result.UNSTABLE);
