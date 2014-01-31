@@ -9,10 +9,7 @@ import hudson.tasks.Shell;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.text.MessageFormat;
-import java.util.Iterator;
-import java.util.Map.Entry;
 
-import com.google.common.collect.Iterators;
 import com.google.common.io.CharStreams;
 
 public class DebUtils {
