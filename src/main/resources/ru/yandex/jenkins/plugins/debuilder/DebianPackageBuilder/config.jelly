@@ -17,5 +17,8 @@
 		<f:entry title="${%Dry run}" field="dryRun">
 			<f:checkbox checked="${instance.dryRun}" default="unchecked" />
 		</f:entry>
+		<f:entry title="${%Use SCM tags and append build}" field="useTagAndBuild">
+			<f:checkbox checked="${instance.useTagAndBuild}" default="unchecked" />
+		</f:entry>
 	</f:advanced>
 </j:jelly>
