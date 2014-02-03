@@ -44,6 +44,10 @@ import org.kohsuke.stapler.StaplerRequest;
 import org.tmatesoft.svn.core.auth.ISVNAuthenticationProvider;
 
 import ru.yandex.jenkins.plugins.debuilder.DebUtils.Runner;
+import ru.yandex.jenkins.plugins.debuilder.dpkg.DpkgException;
+import ru.yandex.jenkins.plugins.debuilder.dupload.Dupload;
+import ru.yandex.jenkins.plugins.debuilder.dupload.DuploadException;
+import ru.yandex.jenkins.plugins.debuilder.dupload.DuploadFTPMethod;
 
 public class DebianPackagePublisher extends Recorder implements Serializable {
     private static final long serialVersionUID = 1L;
@@ -234,74 +238,21 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
                     runner.runCommand("sudo apt-get -y install dupload devscripts");
                     generateDuploadConf(duploadConfPath, build, runner);
 
-                    if (!runner.runCommandForResult("cd ''{0}'' && debrelease", module)) {
+                    if (!runner.runCommandForResult("cd ''{0}'' && debrelease", module))
                         throw new DebianizingException("Debrelease failed");
-                    }
 
                     wereBuilds = true;
 
                 } else if (repo.getMethod().equals("ftp")) {
 
-                    FilePath[] changes = null;
-                    changes = new FilePath(build.getWorkspace().getChannel(), module).getParent().list("*.changes");
+                    FilePath dotChangeFolder = new FilePath(build.getWorkspace().getChannel(), module).getParent();
 
-                    if (changes.length <= 0) {
-                        runner.announce("None change file found!");
-                    }
+                    DuploadFTPMethod duploadFTP = new DuploadFTPMethod(repo.getFqdn());
+                    duploadFTP.setPassword(repo.getPassword());
+                    duploadFTP.setUsername(repo.getLogin());
 
-                    for (FilePath changeFile : changes) {
-                        runner.announce("Parsing '" + changeFile.getRemote() + "'");
-                        DebChanges change = DkpgTools.changesFile.parseChanges(changeFile, runner);
-
-                        // runner.announce(change.getBody());
-
-                        if (!DkpgTools.changesFile.validate(change, changeFile.getParent(), runner))
-                            throw new DebianizingException("Debrelease failed validating '" + changeFile.getRemote() + "'");
-
-                        if (change.getDistributions() == null)
-                            throw new DebianizingException("Debrelease failed no distributions found");
-
-                        DuploadFTP duploadFTP = new DuploadFTP(repo.getFqdn());
-                        duploadFTP.setPassword(repo.getPassword());
-                        duploadFTP.setUsername(repo.getLogin());
-
-                        HashMap<String, String> files = new HashMap<String, String>();
-
-                        if (repo.getIncoming().contains("$distribution$")) {
-                            runner.announce("Publishing for all distributions.");
-
-                            for (String dist : change.getDistributions()) {
-
-                                if (!dist.isEmpty()) {
-                                    String remotePath = repo.getIncoming().replace("$distribution$", dist) + "/";
-
-                                    for (DebChanges.ChangeFile file : change.getFiles().values()) {
-                                        files.put(changeFile.getParent().getRemote() + "/" + file.getName(),
-                                                remotePath + file.getName());
-                                    }
-
-                                    files.put(changeFile.getRemote(), remotePath + changeFile.getName());
-                                }
-                            }
-                        } else {
-                            String remotePath = repo.getIncoming() + "/";
-
-                            for (DebChanges.ChangeFile file : change.getFiles().values()) {
-                                files.put(changeFile.getParent().getRemote() + "/" + file.getName(), remotePath + file.getName());
-                            }
-
-                            files.put(changeFile.getRemote(), remotePath + changeFile.getName());
-                        }
-
-                        if (!duploadFTP.storeFile(files, runner))
-                            throw new DebianizingException("Debrelease failed uploading files");
-
-                        wereBuilds = true;
-
-                    }
-                    // TODO test if this file was uploaded in file log
-                    // TODO test if this distribution is valid
-                    // TODO search for extra announce files *.announce
+                    Dupload.start(dotChangeFolder, duploadFTP, repo.getIncoming(), "$distribution$", runner);
+                    wereBuilds = true;
                 }
 
                 if (wereBuilds && commitChanges) {
@@ -314,6 +265,12 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
             logger.println(MessageFormat.format(DebianPackageBuilder.ABORT_MESSAGE, PREFIX, e.getMessage()));
             build.setResult(Result.UNSTABLE);
         } catch (DebianizingException e) {
+            logger.println(MessageFormat.format(DebianPackageBuilder.ABORT_MESSAGE, PREFIX, e.getMessage()));
+            build.setResult(Result.UNSTABLE);
+        } catch (DpkgException e) {
+            logger.println(MessageFormat.format(DebianPackageBuilder.ABORT_MESSAGE, PREFIX, e.getMessage()));
+            build.setResult(Result.UNSTABLE);
+        } catch (DuploadException e) {
             logger.println(MessageFormat.format(DebianPackageBuilder.ABORT_MESSAGE, PREFIX, e.getMessage()));
             build.setResult(Result.UNSTABLE);
         } catch (Exception e) {
