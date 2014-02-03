@@ -14,6 +14,7 @@ import hudson.model.Cause.UserIdCause;
 import hudson.model.Descriptor;
 import hudson.model.Project;
 import hudson.model.Run;
+import hudson.plugins.git.GitSCM;
 import hudson.scm.SubversionHack;
 import hudson.scm.SvnClientManager;
 import hudson.scm.ChangeLogSet;
@@ -26,6 +27,7 @@ import hudson.tasks.Builder;
 import hudson.util.DescribableList;
 import hudson.util.VariableResolver;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.text.MessageFormat;
@@ -45,6 +47,7 @@ import net.sf.json.JSONObject;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.jenkinsci.plugins.gitclient.Git;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
 import org.tmatesoft.svn.core.ISVNLogEntryHandler;
@@ -54,6 +57,8 @@ import org.tmatesoft.svn.core.SVNURL;
 import org.tmatesoft.svn.core.wc.SVNRevision;
 
 import ru.yandex.jenkins.plugins.debuilder.DebUtils.Runner;
+import ru.yandex.jenkins.plugins.debuilder.dpkg.VersionFormatException;
+import ru.yandex.jenkins.plugins.debuilder.dpkg.Version;
 
 public class DebianPackageBuilder extends Builder {
     public static final String DEBIAN_SOURCE_PACKAGE = "DEBIAN_SOURCE_PACKAGE";
@@ -66,14 +71,16 @@ public class DebianPackageBuilder extends Builder {
     private final boolean dryRun;
     private final boolean generateChangelog;
     private final boolean buildEvenWhenThereAreNoChanges;
+    private final boolean useTagAndBuild;
 
     @DataBoundConstructor
     public DebianPackageBuilder(String pathToDebian, Boolean dryRun, Boolean generateChangelog,
-            Boolean buildEvenWhenThereAreNoChanges) {
+            Boolean buildEvenWhenThereAreNoChanges, Boolean useTagAndBuild) {
         this.pathToDebian = pathToDebian;
         this.dryRun = dryRun;
         this.generateChangelog = generateChangelog;
         this.buildEvenWhenThereAreNoChanges = buildEvenWhenThereAreNoChanges;
+        this.useTagAndBuild = useTagAndBuild;
     }
 
     @Override
@@ -86,8 +93,8 @@ public class DebianPackageBuilder extends Builder {
         Runner runner = new DebUtils.Runner(build, launcher, listener, PREFIX);
 
         try {
-            // runner.runCommand("sudo apt-get update");
-            // runner.runCommand("sudo apt-get install aptitude pbuilder");
+            runner.runCommand("sudo apt-get update");
+            runner.runCommand("sudo apt-get install aptitude pbuilder");
 
             if (!dryRun)
                 importKeys(workspace, runner);
@@ -99,8 +106,8 @@ public class DebianPackageBuilder extends Builder {
             runner.announce("Determined latest version to be {0}", latestVersion);
 
             if (generateChangelog) {
-                Pair<VersionHelper, List<Change>> changes = generateChangelog(latestVersion, runner, build, launcher, listener,
-                        remoteDebian);
+                Pair<VersionHelper, List<Change>> changes = generateChangelog(latestVersion, useTagAndBuild, runner, build,
+                        launcher, listener, remoteDebian);
 
                 if (isTriggeredAutomatically(build) && changes.getRight().isEmpty() && !buildEvenWhenThereAreNoChanges) {
                     runner.announce("There are no creditable changes for this build - not building package.");
@@ -148,6 +155,14 @@ public class DebianPackageBuilder extends Builder {
         path.copyRecursiveTo(mask, new FilePath(build.getArtifactsDir()));
     }
 
+    /**
+     * Return the path to the 'debian' directory, where the control build files
+     * like changelog and rules are stored.
+     * 
+     * @param workspace
+     *            The root of the build workspace
+     * @return The absolute path to the 'debian' dir
+     */
     public String getRemoteDebian(FilePath workspace) {
         if (pathToDebian.endsWith("debian") || pathToDebian.endsWith("debian/")) {
             return workspace.child(pathToDebian).getRemote();
@@ -173,30 +188,78 @@ public class DebianPackageBuilder extends Builder {
      * @throws IOException
      */
     @SuppressWarnings({ "rawtypes" })
-    private Pair<VersionHelper, List<Change>> generateChangelog(String latestVersion, Runner runner, AbstractBuild build,
-            Launcher launcher, BuildListener listener, String remoteDebian) throws DebianizingException, InterruptedException,
-            IOException {
-        VersionHelper helper = new VersionHelper(latestVersion);
+    private Pair<VersionHelper, List<Change>> generateChangelog(String latestVersion, Boolean useTagAndBuild, Runner runner,
+            AbstractBuild build, Launcher launcher, BuildListener listener, String remoteDebian) throws DebianizingException,
+            InterruptedException, IOException {
 
-        runner.announce("Determined latest revision to be {0}", helper.getRevision());
+        VersionHelper versionHelper = new VersionHelper(latestVersion);
+
+        runner.announce("Determined latest revision to be {0}", versionHelper.getRevision());
 
         SCM scm = build.getProject().getScm();
 
-        helper.setMinorVersion(helper.getMinorVersion() + 1);
-        String oldRevision = helper.getRevision();
+        // TODO make the set version a plugable interface
+        if (useTagAndBuild) {
+            if (scm instanceof GitSCM) {
+                GitSCM gitSCM = (GitSCM) scm;
+
+                File gitCheckout = new File(remoteDebian);
+                Git git = new Git(listener, build.getEnvironment(listener));
+
+                git.in(gitCheckout);
+                git.using(gitSCM.resolveGitTool(listener).getGitExe());
+                Set<String> tags = git.getClient().getTagNames("*");
+
+                // Using the lowest version
+                String biggerTag = new String();
+                for (String tag : tags) {
+                    if (!tag.startsWith("v"))
+                        continue;
+                    tag = tag.substring(1);
+                    try {
+                        if (biggerTag == null || biggerTag.isEmpty())
+                            biggerTag = tag;
+                        else if (Version.versionTextCompare(biggerTag, tag) < 0)
+                            biggerTag = tag;
+                    } catch (VersionFormatException e) {
+                        // ignore
+                    }
+                }
+
+                if (biggerTag != null && !biggerTag.isEmpty()) {
+                    runner.announce("The biggest tag found: " + biggerTag);
+                    // build starts in 1 so using a prior version
+                    biggerTag += "+build.0";
+
+                    try {
+                        if (Version.versionTextCompare(latestVersion, biggerTag) < 0) {
+                            versionHelper = new VersionHelper(biggerTag);
+                        }
+                    } catch (VersionFormatException e) {
+                        e.printStackTrace();
+                        throw new DebianizingException("Fail comparing latest version e the biggest tag:"
+                                + e.getLocalizedMessage());
+
+                    }
+                }
+            }
+        }
+
+        versionHelper.setMinorVersion(versionHelper.getMinorVersion() + 1);
+        String oldRevision = versionHelper.getRevision();
 
         List<Change> changes;
 
         if (scm instanceof SubversionSCM) {
-            helper.setRevision(getRevision(build, (SubversionSCM) scm, runner, remoteDebian, listener));
+            versionHelper.setRevision(getRevision(build, (SubversionSCM) scm, runner, remoteDebian, listener));
             if ("".equals(oldRevision)) {
                 runner.announce("No last revision known, using changes since last successful build to populate debian/changelog");
                 changes = getChangesSinceLastBuild(runner, build);
             } else {
                 runner.announce("Calculating changes since revision {0}.", oldRevision);
                 String ourMessage = DebianPackagePublisher.getUsedCommitMessage(build);
-                changes = getChangesFromSCM(runner, (SubversionSCM) scm, build, remoteDebian, oldRevision, helper.getRevision(),
-                        ourMessage);
+                changes = getChangesFromSCM(runner, (SubversionSCM) scm, build, remoteDebian, oldRevision,
+                        versionHelper.getRevision(), ourMessage);
             }
         } else {
             runner.announce("SCM in use is not Subversion (but <{0}> instead), defaulting to changes since last build", scm
@@ -204,7 +267,7 @@ public class DebianPackageBuilder extends Builder {
             changes = getChangesSinceLastBuild(runner, build);
         }
 
-        return new ImmutablePair<VersionHelper, List<Change>>(helper, changes);
+        return new ImmutablePair<VersionHelper, List<Change>>(versionHelper, changes);
     }
 
     /**
@@ -232,6 +295,8 @@ public class DebianPackageBuilder extends Builder {
         for (Change change : changes.getRight()) {
             addChange(runner, remoteDebian, change);
         }
+
+        releaseVersion(runner, remoteDebian);
     }
 
     @SuppressWarnings("rawtypes")
@@ -412,6 +477,13 @@ public class DebianPackageBuilder extends Builder {
                 getDescriptor().getAccountName(), "Jenkins", remoteDebian, helper, clearMessage(message));
     }
 
+    private void releaseVersion(Runner runner, String remoteDebian) throws InterruptedException, DebianizingException {
+        runner.announce("Releasing version");
+        runner.runCommand(
+                "export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 -b --vendor debian --release ''{3}''",
+                getDescriptor().getAccountName(), "Jenkins", remoteDebian, "release");
+    }
+
     /**
      * FIXME Doesn't work with multi-line entries
      */
@@ -425,6 +497,17 @@ public class DebianPackageBuilder extends Builder {
             if (matcher.matches()) {
                 changelog.put(matcher.group(1), matcher.group(2));
             }
+        }
+
+        if (changelog.isEmpty())
+            throw new DebianizingException("Fail parsing changelog. Original input: " + changelogOutput);
+
+        String[] fields = { "Source", "Version", "Distribution", "Urgency", "Maintainer", "Date", "Changes" };
+
+        for (String field : fields) {
+            if (changelog.get(field) == null)
+                throw new DebianizingException("Fail parsing changelog, '" + field + "' not found. Original input: "
+                        + changelogOutput);
         }
 
         return changelog;
@@ -566,6 +649,10 @@ public class DebianPackageBuilder extends Builder {
 
     public boolean isBuildEvenWhenThereAreNoChanges() {
         return buildEvenWhenThereAreNoChanges;
+    }
+
+    public boolean isUseTagAndBuild() {
+        return useTagAndBuild;
     }
 
 }
