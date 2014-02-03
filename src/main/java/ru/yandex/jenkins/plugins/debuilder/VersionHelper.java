@@ -34,7 +34,6 @@ public class VersionHelper {
 	 */
 	public VersionHelper(String version, char separatorCharacter) {
 		this(version.split("\\" + separatorCharacter), "" + separatorCharacter);
-
 	}
 
 	/**
