@@ -251,6 +251,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
                     duploadFTP.setPassword(repo.getPassword());
                     duploadFTP.setUsername(repo.getLogin());
 
+                    // TODO execute the upload process on the slave machine
                     Dupload.start(dotChangeFolder, duploadFTP, repo.getIncoming(), "$distribution$", runner);
                     wereBuilds = true;
                 }
