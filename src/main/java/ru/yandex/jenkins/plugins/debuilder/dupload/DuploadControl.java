@@ -376,9 +376,16 @@ public class DuploadControl {
             lines += action.getActionType() + " " + entry.getFileName() + " " + action.getDestination() + " "
                     + ActionType.executedDateFormat.format(action.getExecutedDate()) + "\n";
         }
-        FileWriter fw = new FileWriter(dotUploadFile.getRemote(), true);
-        fw.write(lines);// appends the string to the file
-        fw.close();
+
+        String content = "";
+        if (dotUploadFile.exists())
+            content = dotUploadFile.readToString();
+
+        if (!content.isEmpty() && !content.endsWith("\n"))
+            content += "\n";
+        content += lines;
+
+        dotUploadFile.write(content, null);
     }
 
     /**
