@@ -60,13 +60,13 @@ public class Dupload {
             FilePath dotUploadFile = new FilePath(dotChangeFile.getParent(), dotChangeFile.getBaseName() + ".upload");
 
             // Remove from upload queue files that has already been uploaded
-            ArrayList<String> filesToUpload = getFilesToUpload(dotUploadFile, dotChangeFile, debianChanges, runner);
+            ArrayList<FilePath> filesToUpload = getFilesToUpload(dotUploadFile, dotChangeFile, debianChanges, runner);
 
             if (filesToUpload == null || filesToUpload.isEmpty()) {
                 runner.announce("All files has already been uploaded.");
             } else {
-                HashMap<String, String> localAndRemoteFilesDestination = generateUploadPaths(dotChangeFile.getParent()
-                        .getRemote(), incomingPath, filesToUpload, distributionPattern, debianChanges.getDistributions());
+                HashMap<FilePath, String> localAndRemoteFilesDestination = generateUploadPaths(filesToUpload, incomingPath,
+                        distributionPattern, debianChanges.getDistributions());
 
                 if (!uploadMethod.storeFile(localAndRemoteFilesDestination, runner))
                     throw new DuploadException("Dupload failed uploading files");
@@ -103,10 +103,10 @@ public class Dupload {
      *             If Some file operation is interrupted
      * @throws DuploadException
      */
-    private static ArrayList<String> getFilesToUpload(FilePath dotUploadFile, FilePath dotChangesFile,
+    private static ArrayList<FilePath> getFilesToUpload(FilePath dotUploadFile, FilePath dotChangesFile,
             DebianChanges debianChanges, Runner runner) throws IOException, InterruptedException, DuploadException {
 
-        ArrayList<String> fileUploadQueue = new ArrayList<String>();
+        ArrayList<FilePath> fileUploadQueue = new ArrayList<FilePath>();
         ArrayList<String> filesInControl = new ArrayList<String>();
 
         if (dotUploadFile != null && dotUploadFile.exists() && !dotUploadFile.isDirectory()) {
@@ -125,14 +125,15 @@ public class Dupload {
 
         }
 
+        FilePath basePath = dotChangesFile.getParent();
         for (String changesFileEntry : debianChanges.getFiles().keySet())
             // If the file was not already uploaded add to upload queue
             if (!filesInControl.contains(changesFileEntry))
-                fileUploadQueue.add(changesFileEntry);
+                fileUploadQueue.add(basePath.child(changesFileEntry));
 
         // If the .changes was not uploaded add to queue
         if (!filesInControl.contains(dotChangesFile.getName()))
-            fileUploadQueue.add(dotChangesFile.getName());
+            fileUploadQueue.add(dotChangesFile);
 
         return fileUploadQueue;
     }
@@ -144,22 +145,21 @@ public class Dupload {
      *            The local base path
      * @param remoteBasePath
      *            The remote base path.
-     * @param fileNames
+     * @param files
      *            The file name relative to the base paths
      * @param distributionPattern
      *            If not empty
      * @param distributions
      * @return
      */
-    private static HashMap<String, String> generateUploadPaths(String localBasePath, String remoteBasePath,
-            ArrayList<String> fileNames, String distributionPattern, String[] distributions) {
+    private static HashMap<FilePath, String> generateUploadPaths(ArrayList<FilePath> files, String remoteBasePath,
+            String distributionPattern, String[] distributions) {
 
-        localBasePath = localBasePath == null ? "" : localBasePath + "/";
         remoteBasePath = remoteBasePath == null ? "" : remoteBasePath + "/";
 
-        HashMap<String, String> localAndRemoteFilesDestination = new HashMap<String, String>();
+        HashMap<FilePath, String> localAndRemoteFilesDestination = new HashMap<FilePath, String>();
 
-        if (fileNames == null || fileNames.isEmpty())
+        if (files == null || files.isEmpty())
             return localAndRemoteFilesDestination;
 
         ArrayList<String> dists = new ArrayList<String>();
@@ -180,8 +180,8 @@ public class Dupload {
             else
                 remotePath = remoteBasePath;
 
-            for (String file : fileNames)
-                localAndRemoteFilesDestination.put(localBasePath + file, remotePath + file);
+            for (FilePath file : files)
+                localAndRemoteFilesDestination.put(file, remotePath + file.getName());
 
         }
 
@@ -204,18 +204,18 @@ public class Dupload {
      *             If some problem create the control fail
      */
     private static void registerControlFile(FilePath dotUploadFile, String debianChangesFileName,
-            ArrayList<String> filesUploaded, String destinationServer) throws DuploadException {
+            ArrayList<FilePath> filesUploaded, String destinationServer) throws DuploadException {
         Date now = new Date();
 
         DuploadControl control = new DuploadControl();
         try {
             if (filesUploaded != null && !filesUploaded.isEmpty()) {
-                for (String changeFileEntry : filesUploaded) {
+                for (FilePath changeFileEntry : filesUploaded) {
 
                     ControlEntry fileEntry;
 
-                    fileEntry = new ControlEntry(changeFileEntry, new ActionType(DuploadControl.ActionType.UPLOAD_ACTION,
-                            destinationServer, now));
+                    fileEntry = new ControlEntry(changeFileEntry.getName(), new ActionType(
+                            DuploadControl.ActionType.UPLOAD_ACTION, destinationServer, now));
 
                     control.mergeEntry(fileEntry);
                 }
