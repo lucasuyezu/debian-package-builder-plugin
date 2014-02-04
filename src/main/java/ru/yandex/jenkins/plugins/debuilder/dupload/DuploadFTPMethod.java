@@ -1,6 +1,7 @@
 package ru.yandex.jenkins.plugins.debuilder.dupload;
 
-import java.io.FileInputStream;
+import hudson.FilePath;
+
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -375,7 +376,7 @@ public class DuploadFTPMethod implements DuploadUploadMethod {
      *            Used to log
      * @return Success (true) or fail (false)
      */
-    public Boolean storeFile(Map<String, String> files, Runner runner) {
+    public Boolean storeFile(Map<FilePath, String> files, Runner runner) {
         Boolean rc = null;
 
         if (runner == null)
@@ -391,18 +392,18 @@ public class DuploadFTPMethod implements DuploadUploadMethod {
             return false;
         }
 
-        Map<String, String> myFiles = new HashMap<String, String>(files);
-        for (Map.Entry<String, String> entry : myFiles.entrySet()) {
-            String local = entry.getKey();
+        Map<FilePath, String> myFiles = new HashMap<FilePath, String>(files);
+        for (Map.Entry<FilePath, String> entry : myFiles.entrySet()) {
+            FilePath file = entry.getKey();
             String remote = entry.getValue();
             try {
-                InputStream input = new FileInputStream(local);
+                InputStream input = file.read();
                 if (ftp.storeFile(remote, input)) {
-                    runner.announce("File '" + local + "' uploaded to " + remote);
+                    runner.announce("File '" + file.getRemote() + "' uploaded to " + remote);
                     if (rc == null)
                         rc = true;
                 } else {
-                    runner.announce("File '" + local + "' not uploaded to " + remote);
+                    runner.announce("File '" + file.getRemote() + "' not uploaded to " + remote);
                     rc = false;
                 }
                 runner.announce(ftp.getReplyString());
@@ -440,17 +441,17 @@ public class DuploadFTPMethod implements DuploadUploadMethod {
     /**
      * As {@link DuploadFTPMethod#storeFile(Map, Runner)} but for only one file
      * 
-     * @param local
-     *            The local file
+     * @param file
+     *            The file to upload
      * @param remote
      *            The remote destination path
      * @param runner
      *            To log
      * @return Success or fail
      */
-    public Boolean storeFile(String local, String remote, Runner runner) {
-        HashMap<String, String> files = new HashMap<String, String>();
-        files.put(local, remote);
+    public Boolean storeFile(FilePath file, String remote, Runner runner) {
+        HashMap<FilePath, String> files = new HashMap<FilePath, String>();
+        files.put(file, remote);
         return storeFile(files, runner);
     }
 
