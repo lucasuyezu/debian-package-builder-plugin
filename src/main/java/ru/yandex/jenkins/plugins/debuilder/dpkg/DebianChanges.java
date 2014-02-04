@@ -391,14 +391,12 @@ public class DebianChanges {
 
     public Boolean readDotChangesFile(FilePath dotChangesFile, Runner runner) throws IOException, InterruptedException,
             DpkgException {
+        runner.announce("Parsing .changes file");
         DebianChanges tmpDebianChanges = DebianChanges.parseChanges(dotChangesFile, runner);
+        runner.announce("Validating .changes informations");
         if (DebianChanges.validate(tmpDebianChanges, dotChangesFile.getParent(), runner)) {
             this.override(tmpDebianChanges);
-
-            if (DebianChanges.validate(this, dotChangesFile.getParent(), runner))
-                return true;
-
-            return false;
+            return true;
         }
         return false;
     }
@@ -468,7 +466,7 @@ public class DebianChanges {
 
             if (row.matches(".*-----BEGIN PGP SIGNED MESSAGE-----.*"))
                 continue;
-            
+
             if (row.matches(".*-----BEGIN PGP SIGNATURE-----.*"))
                 break;
 
@@ -685,6 +683,7 @@ public class DebianChanges {
                 runner.announce("{0} File name is empty.", msgPrefix);
                 return false;
             }
+            runner.announce("Validating file " + changeFile.getName() + " size and digests.");
 
             FilePath file = rootDir.child(changeFile.getName());
             if (!validateSize(changeFile.getSize(), file)) {
