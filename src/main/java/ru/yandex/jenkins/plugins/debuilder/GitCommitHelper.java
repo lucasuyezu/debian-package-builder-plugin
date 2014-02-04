@@ -21,50 +21,55 @@ import ru.yandex.jenkins.plugins.debuilder.DebUtils.Runner;
 import ru.yandex.jenkins.plugins.debuilder.DebianPackageBuilder.DescriptorImpl;
 
 /**
- * Performs git commiting actions in a remote WS, namely, commiting changelog to the current branch
- * Note to future self: all the fields should be serializable
+ * Performs git commiting actions in a remote WS, namely, commiting changelog to
+ * the current branch Note to future self: all the fields should be serializable
  * 
  * @author pupssman
- *
+ * 
  */
-public class GitCommitHelper implements FileCallable<Boolean>{
+public class GitCommitHelper implements FileCallable<Boolean> {
 
-	private static final long serialVersionUID = 1L;
-	private final EnvVars environment;
-	private final TaskListener listener;
-	private final String gitExe;
-	private final String accountName;
-	private final String commitMessage;
-	private Collection<String> modules;
+    private static final long serialVersionUID = 1L;
+    private final EnvVars environment;
+    private final TaskListener listener;
+    private final String gitExe;
+    private final String gitPrefix;
+    private final String accountName;
+    private final String commitMessage;
+    private Collection<String> modules;
 
-	public GitCommitHelper(AbstractBuild<?, ?> build, GitSCM scm, Runner runner, String commitMessage, Collection<String> modules) throws IOException, InterruptedException {
-		this.commitMessage = commitMessage;
-		this.modules = modules;
-		this.environment = build.getEnvironment(runner.getListener());
-		this.listener = runner.getListener();
-		this.gitExe = scm.getGitExe(build.getBuiltOn(), listener);
-		this.accountName = ((DescriptorImpl) Jenkins.getInstance().getDescriptor(DebianPackageBuilder.class)).getAccountName();
-	}
+    public GitCommitHelper(AbstractBuild<?, ?> build, GitSCM scm, Runner runner, String commitMessage, Collection<String> modules)
+            throws IOException, InterruptedException {
+        this.commitMessage = commitMessage;
+        this.modules = modules;
+        this.environment = build.getEnvironment(runner.getListener());
+        this.listener = runner.getListener();
+        this.gitExe = scm.getGitExe(build.getBuiltOn(), listener);
+        this.gitPrefix = scm.getRelativeTargetDir();
+        this.accountName = ((DescriptorImpl) Jenkins.getInstance().getDescriptor(DebianPackageBuilder.class)).getAccountName();
+    }
 
-	@Override
-	public Boolean invoke(File localWorkspace, VirtualChannel channel) throws IOException,
-			InterruptedException {
-		GitClient git = Git.with(listener, environment)
-				.in(localWorkspace).using(gitExe)
-				.getClient();
+    @Override
+    public Boolean invoke(File localWorkspace, VirtualChannel channel) throws IOException, InterruptedException {
 
-		if (git.hasGitRepo()) {
-			
-			PersonIdent person = new PersonIdent("Jenkins", accountName);
-			for (String module: modules) {
-				git.add(new File(module, "debian/changelog").getCanonicalPath());
-			}
-			git.commit(commitMessage, person, person);
-			
-			return true;
-		} else {
-			return false;
-		}
-	}
+        File gitClonePath = localWorkspace;
+        if (gitPrefix != null)
+            gitClonePath = new File(localWorkspace, gitPrefix);
 
+        GitClient git = Git.with(listener, environment).in(gitClonePath).using(gitExe).getClient();
+
+        if (git.hasGitRepo()) {
+
+            PersonIdent person = new PersonIdent("Jenkins", accountName);
+            for (String module : modules) {
+                git.add(new File(module, "debian/changelog").getCanonicalPath());
+            }
+            git.commit(commitMessage, person, person);
+
+            return true;
+        } else {
+            return false;
+        }
+
+    }
 }
