@@ -201,45 +201,47 @@ public class DebianPackageBuilder extends Builder {
         // TODO make the set version a plugable interface
         if (useTagAndBuild) {
             if (scm instanceof GitSCM) {
-                GitSCM gitSCM = (GitSCM) scm;
 
-                File gitCheckout = new File(remoteDebian);
-                Git git = new Git(listener, build.getEnvironment(listener));
+                GitTagsHelper gitTagsHelper = new GitTagsHelper(build, (GitSCM) scm, runner);
 
-                git.in(gitCheckout);
-                git.using(gitSCM.resolveGitTool(listener).getGitExe());
-                Set<String> tags = git.getClient().getTagNames("*");
+                Pair<Boolean, Set<String>> result = build.getWorkspace().act(gitTagsHelper);
 
-                // Using the lowest version
-                String biggerTag = new String();
-                for (String tag : tags) {
-                    if (!tag.startsWith("v"))
-                        continue;
-                    tag = tag.substring(1);
-                    try {
-                        if (biggerTag == null || biggerTag.isEmpty())
-                            biggerTag = tag;
-                        else if (Version.versionTextCompare(biggerTag, tag) < 0)
-                            biggerTag = tag;
-                    } catch (VersionFormatException e) {
-                        // ignore
-                    }
-                }
+                if (!result.getLeft()) {
+                    runner.announce("Fail getting tags from repo, using version from changelog");
+                } else {
+                    Set<String> tags = result.getRight();
 
-                if (biggerTag != null && !biggerTag.isEmpty()) {
-                    runner.announce("The biggest tag found: " + biggerTag);
-                    // build starts in 1 so using a prior version
-                    biggerTag += "+build.0";
-
-                    try {
-                        if (Version.versionTextCompare(latestVersion, biggerTag) < 0) {
-                            versionHelper = new VersionHelper(biggerTag);
+                    // Using the lowest version
+                    String biggerTag = new String();
+                    for (String tag : tags) {
+                        if (!tag.startsWith("v"))
+                            continue;
+                        tag = tag.substring(1);
+                        try {
+                            if (biggerTag == null || biggerTag.isEmpty())
+                                biggerTag = tag;
+                            else if (Version.versionTextCompare(biggerTag, tag) < 0)
+                                biggerTag = tag;
+                        } catch (VersionFormatException e) {
+                            // ignore
                         }
-                    } catch (VersionFormatException e) {
-                        e.printStackTrace();
-                        throw new DebianizingException("Fail comparing latest version e the biggest tag:"
-                                + e.getLocalizedMessage());
+                    }
 
+                    if (biggerTag != null && !biggerTag.isEmpty()) {
+                        runner.announce("The biggest tag found: " + biggerTag);
+                        // build starts in 1 so using a prior version
+                        biggerTag += "+build.0";
+
+                        try {
+                            if (Version.versionTextCompare(latestVersion, biggerTag) < 0) {
+                                versionHelper = new VersionHelper(biggerTag);
+                            }
+                        } catch (VersionFormatException e) {
+                            e.printStackTrace();
+                            throw new DebianizingException("Fail comparing latest version e the biggest tag:"
+                                    + e.getLocalizedMessage());
+
+                        }
                     }
                 }
             }
