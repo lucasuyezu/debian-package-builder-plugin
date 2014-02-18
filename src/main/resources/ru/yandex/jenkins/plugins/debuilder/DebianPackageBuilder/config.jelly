@@ -4,21 +4,25 @@
 		<f:textbox />
 	</f:entry>
 
-	<f:optionalBlock name="generateChangelog" title="Generate changelog?"
+	<f:optionalBlock name="generateChangelog" title="${%Generate changelog?}"
 		checked="${instance.generateChangelog}" inline="true">
 		<f:entry
-			title="Build automatically even if there are no changes in the package"
+			title="${%Build automatically even if there are no changes in the package}"
 			field="buildEvenWhenThereAreNoChanges">
 			<f:checkbox />
+		</f:entry>
+		<f:entry title="${%Use SCM tags and append build}" field="useTagAndBuild">
+			<f:checkbox checked="${instance.useTagAndBuild}" default="unchecked" />
+		</f:entry>
+		<f:entry title="${%Force distribution}" field="distribution"
+			value="${instance.distribution}">
+			<f:textbox />
 		</f:entry>
 	</f:optionalBlock>
 
 	<f:advanced>
-		<f:entry title="${%Dry run}" field="dryRun">
-			<f:checkbox checked="${instance.dryRun}" default="unchecked" />
-		</f:entry>
-		<f:entry title="${%Use SCM tags and append build}" field="useTagAndBuild">
-			<f:checkbox checked="${instance.useTagAndBuild}" default="unchecked" />
+		<f:entry title="${%Custom build command}" field="buildCommand">
+			<f:textarea />
 		</f:entry>
 	</f:advanced>
 </j:jelly>
