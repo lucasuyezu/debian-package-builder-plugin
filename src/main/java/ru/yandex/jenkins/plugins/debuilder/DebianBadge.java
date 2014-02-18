@@ -11,7 +11,6 @@ import hudson.model.BuildBadgeAction;
 public class DebianBadge implements BuildBadgeAction {
     private String module = "";
     private String version = "";
-    private String repository = "";
     private String text = "built deb";
     private String color = "#000000";
     private String background = "#FFDA47";
@@ -72,15 +71,5 @@ public class DebianBadge implements BuildBadgeAction {
     @Exported
     public String getVersion() {
         return version;
-    }
-
-    @Exported
-    public String getRepository() {
-        return repository;
-    }
-
-    @Exported
-    public void setRepository(String repositoryName) {
-        repository = repositoryName;
     }
 }
