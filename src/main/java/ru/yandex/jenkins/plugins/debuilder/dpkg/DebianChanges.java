@@ -3,23 +3,26 @@ package ru.yandex.jenkins.plugins.debuilder.dpkg;
 import hudson.FilePath;
 
 import java.io.IOException;
-import java.text.DateFormat;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.ListIterator;
-import java.util.Locale;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.commons.codec.digest.DigestUtils;
+import javax.mail.internet.AddressException;
+import javax.mail.internet.InternetAddress;
 
-import ru.yandex.jenkins.plugins.debuilder.DebUtils.Runner;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
+
+import ru.yandex.jenkins.plugins.debuilder.dpkg.common.DebianDate;
+import ru.yandex.jenkins.plugins.debuilder.dpkg.common.DebianDistributions;
+import ru.yandex.jenkins.plugins.debuilder.dpkg.common.DebianFileEntry;
+import ru.yandex.jenkins.plugins.debuilder.dpkg.common.DebianFiles;
+import ru.yandex.jenkins.plugins.debuilder.dpkg.common.DebianVersion;
 
 /**
  * Stores all data from .changes files used to control the upload process of
@@ -33,39 +36,38 @@ public class DebianChanges {
     private String format;
 
     public static String DATE_KEY = "Date";
-    private Date date;
-    public static DateFormat dateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss Z", Locale.US);
+    private DebianDate date;
 
     public static String SOURCE_KEY = "Source";
     private String source;
 
     public static String BINARY_KEY = "Binary";
-    private String[] binarys;
+    private ArrayList<String> binarys;
 
     public static String ARCHITECTURE_KEY = "Architecture";
-    private String[] architectures;
+    private ArrayList<String> architectures;
 
     public static String VERSION_KEY = "Version";
-    private Version version;
+    private DebianVersion version;
 
     public static String DISTRIBUTION_KEY = "Distribution";
-    private String[] distributions;
+    private DebianDistributions distributions;
 
     public static String URGENCY_KEY = "Urgency";
     private String urgency;
 
     public static String MAINTAINER_KEY = "Maintainer";
-    private List<Contact> maintainers;
+    private List<InternetAddress> maintainers;
 
     public static String CHANGED_BY_KEY = "Changed-by";
-    private Contact changedBy;
+    private InternetAddress changedBy;
 
     public static String DESCRIPTION_KEY = "Description";
     private String shortDesc;
     private String longDesc;
 
     public static String CLOSES_KEY = "Closes";
-    private String[] closes;
+    private ArrayList<String> closes;
 
     public static String CHANGES_KEY = "Changes";
     private String changes;
@@ -73,122 +75,9 @@ public class DebianChanges {
     public static String CHECKSUMS_SHA1_KEY = "Checksums-Sha1";
     public static String CHECKSUMS_SHA256_KEY = "Checksums-Sha256";
     public static String FILES_KEY = "Files";
-    private Map<String, ChangeFile> files;
+    private DebianFiles files;
 
     public static String KEY_SEPARATOR = ":";
-
-    public DebianChanges() {
-
-    }
-
-    /**
-     * @param dotChangesFile
-     * @param runner
-     * @throws Exception
-     * @throws IOException
-     * @throws InterruptedException
-     */
-    public DebianChanges(FilePath dotChangesFile, Runner runner) throws Exception, IOException, InterruptedException {
-        if (readDotChangesFile(dotChangesFile, runner))
-            throw new Exception("a");
-    }
-
-    public static class Contact {
-        private String name;
-        private String email;
-
-        public Contact() {
-
-        }
-
-        public Contact(String name, String email) {
-            this.name = name;
-            this.email = email;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public void setName(String name) {
-            this.name = name;
-        }
-
-        public String getEmail() {
-            return email;
-        }
-
-        public void setEmail(String email) {
-            this.email = email;
-        }
-    }
-
-    public static class ChangeFile {
-        private String md5;
-        private String sha1;
-        private String sha256;
-        private Long size;
-        private String section;
-        private String priority;
-        private String name;
-
-        public String getMd5() {
-            return md5;
-        }
-
-        public void setMd5(String md5) {
-            this.md5 = md5;
-        }
-
-        public String getSha1() {
-            return sha1;
-        }
-
-        public void setSha1(String sha1) {
-            this.sha1 = sha1;
-        }
-
-        public String getSha256() {
-            return sha256;
-        }
-
-        public void setSha256(String sha256) {
-            this.sha256 = sha256;
-        }
-
-        public Long getSize() {
-            return size;
-        }
-
-        public void setSize(Long size) {
-            this.size = size;
-        }
-
-        public String getSection() {
-            return section;
-        }
-
-        public void setSection(String section) {
-            this.section = section;
-        }
-
-        public String getPriority() {
-            return priority;
-        }
-
-        public void setPriority(String priority) {
-            this.priority = priority;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public void setName(String name) {
-            this.name = name;
-        }
-
-    }
 
     public String getFormat() {
         return format;
@@ -198,11 +87,11 @@ public class DebianChanges {
         this.format = format;
     }
 
-    public Date getDate() {
+    public DebianDate getDate() {
         return date;
     }
 
-    public void setDate(Date date) {
+    public void setDate(DebianDate date) {
         this.date = date;
     }
 
@@ -214,35 +103,35 @@ public class DebianChanges {
         this.source = source;
     }
 
-    public String[] getBinarys() {
+    public ArrayList<String> getBinarys() {
         return binarys;
     }
 
-    public void setBinarys(String[] binarys) {
+    public void setBinarys(ArrayList<String> binarys) {
         this.binarys = binarys;
     }
 
-    public String[] getArchitectures() {
+    public ArrayList<String> getArchitectures() {
         return architectures;
     }
 
-    public void setArchitectures(String[] architectures) {
+    public void setArchitectures(ArrayList<String> architectures) {
         this.architectures = architectures;
     }
 
-    public Version getVersion() {
+    public DebianVersion getVersion() {
         return version;
     }
 
-    public void setVersion(Version version) {
+    public void setVersion(DebianVersion version) {
         this.version = version;
     }
 
-    public String[] getDistributions() {
+    public DebianDistributions getDistributions() {
         return distributions;
     }
 
-    public void setDistributions(String[] distributions) {
+    public void setDistributions(DebianDistributions distributions) {
         this.distributions = distributions;
     }
 
@@ -254,31 +143,41 @@ public class DebianChanges {
         this.urgency = urgency;
     }
 
-    public List<Contact> getMaintainers() {
+    public List<InternetAddress> getMaintainers() {
         return maintainers;
     }
 
-    public void setMaintainers(List<Contact> maintainers) {
+    public void setMaintainers(List<InternetAddress> maintainers) {
         this.maintainers = maintainers;
     }
 
-    public void addMaintainer(String name, String email) {
-        if (maintainers == null)
-            setMaintainers(new ArrayList<Contact>());
-        maintainers.add(new Contact(name, email));
+    public void setMaintainers(String maintainersList) throws AddressException {
+        this.maintainers = Arrays.asList(InternetAddress.parse(maintainersList, true));
     }
 
-    public Contact getChangedBy() {
+    public InternetAddress getChangedBy() {
         return changedBy;
     }
 
-    public void setChangedBy(Contact changedBy) {
+    public void setChangedBy(InternetAddress changedBy) {
         this.changedBy = changedBy;
     }
 
-    public void setChangedBy(String name, String email) {
-        Contact contact = new Contact(name, email);
-        setChangedBy(contact);
+    /**
+     * Set the changed-by
+     * 
+     * @param line
+     * @return True if line is a valid {@link InternetAddress}
+     */
+    public boolean setChangedBy(String line) {
+        try {
+            InternetAddress contact = new InternetAddress(line, true);
+            setChangedBy(contact);
+            return true;
+        } catch (AddressException e) {
+            return false;
+        }
+
     }
 
     public String getShortDesc() {
@@ -297,11 +196,11 @@ public class DebianChanges {
         this.longDesc = longDesc;
     }
 
-    public String[] getCloses() {
+    public ArrayList<String> getCloses() {
         return closes;
     }
 
-    public void setCloses(String[] closes) {
+    public void setCloses(ArrayList<String> closes) {
         this.closes = closes;
     }
 
@@ -313,321 +212,263 @@ public class DebianChanges {
         this.changes = changes;
     }
 
-    public Map<String, ChangeFile> getFiles() {
+    public DebianFiles getFiles() {
         return files;
     }
 
-    public void setFiles(Map<String, ChangeFile> files) {
+    public void setFiles(DebianFiles files) {
         this.files = files;
     }
 
-    // public String getBody() {
-    // String body = "";
-    //
-    // String notMandatory = "";
-    // if (this.urgency != null)
-    // notMandatory += URGENCY_KEY + KEY_SEPARATOR + " " + urgency + "\n";
-    // if (this.changedBy != null)
-    // notMandatory += CHANGED_BY_KEY + KEY_SEPARATOR + " " +
-    // changedBy.getName() + " <" + changedBy.getEmail() + ">,";
-    // if (this.closes != null)
-    // notMandatory += CLOSES_KEY + KEY_SEPARATOR + " " + closes + "\n";
-    //
-    // body += FORMAT_KEY + KEY_SEPARATOR + " " + format + "\n";
-    // body += DATE_KEY + KEY_SEPARATOR + " " + dateFormat.format(date) + "\n";
-    // body += SOURCE_KEY + KEY_SEPARATOR + " " + source + "\n";
-    // body += BINARY_KEY + KEY_SEPARATOR;
-    // for (String bin : binarys)
-    // body += " " + bin;
-    // body += "\n";
-    //
-    // body += ARCHITECTURE_KEY + KEY_SEPARATOR;
-    // for (String arch : architectures)
-    // body += " " + arch;
-    // body += "\n";
-    //
-    // body += VERSION_KEY + KEY_SEPARATOR + " ";
-    // if (version != null)
-    // body += version.getFullVersion();
-    // body += "\n";
-    //
-    // body += DISTRIBUTION_KEY + KEY_SEPARATOR;
-    // for (String dist : distributions)
-    // body += " " + dist;
-    // body += "\n";
-    //
-    // body += URGENCY_KEY + KEY_SEPARATOR + " " + urgency + "\n";
-    // body += MAINTAINER_KEY + KEY_SEPARATOR;
-    // for (Contact maint : maintainers)
-    // body += " " + maint.getName() + " <" + maint.getEmail() + ">,";
-    // body += "\n";
-    //
-    // body += notMandatory;
-    // body += DESCRIPTION_KEY + KEY_SEPARATOR + " " + shortDesc + "\n";
-    // if (longDesc != null)
-    // body += longDesc + "\n";
-    //
-    // body += CHANGES_KEY + KEY_SEPARATOR + "\n" + changes + "\n";
-    // body += CHECKSUMS_SHA1_KEY + KEY_SEPARATOR + "\n";
-    // if (files != null)
-    // for (ChangeFile f : files.values())
-    // body += " " + f.getSha1() + " " + f.getSize() + " " + f.getName() + "\n";
-    //
-    // body += CHECKSUMS_SHA256_KEY + KEY_SEPARATOR + "\n";
-    // if (files != null)
-    // for (ChangeFile f : files.values())
-    // body += " " + f.getSha256() + " " + f.getSize() + " " + f.getName() +
-    // "\n";
-    //
-    // body += FILES_KEY + KEY_SEPARATOR + "\n";
-    // if (files != null)
-    // for (ChangeFile f : files.values())
-    // body += " " + f.getMd5() + " " + f.getSection() + " " + f.getPriority() +
-    // " " + f.getSize() + " " + f.getName()
-    // + "\n";
-    //
-    // return body;
-    // }
+    private String bodyLine(Object... objs) {
+        return MessageFormat.format("{0}" + KEY_SEPARATOR + " {1}\n", objs);
+    }
 
-    public Boolean readDotChangesFile(FilePath dotChangesFile, Runner runner) throws IOException, InterruptedException,
-            DpkgException {
-        runner.announce("Parsing .changes file");
-        DebianChanges tmpDebianChanges = DebianChanges.parseChanges(dotChangesFile, runner);
-        runner.announce("Validating .changes informations");
-        if (DebianChanges.validate(tmpDebianChanges, dotChangesFile.getParent(), runner)) {
-            this.override(tmpDebianChanges);
-            return true;
+    public String getBody() {
+        String body = "";
+
+        body += format != null ? bodyLine(FORMAT_KEY, format) : "";
+        body += date != null ? bodyLine(DATE_KEY, DebianDate.dateFormat.format(date.getDate())) : "";
+        body += source != null ? bodyLine(SOURCE_KEY, source) : "";
+
+        if (binarys != null && !binarys.isEmpty()) {
+            body += BINARY_KEY + KEY_SEPARATOR;
+            for (String bin : binarys)
+                body += " " + bin;
+            body += "\n";
         }
-        return false;
+
+        if (architectures != null && !architectures.isEmpty()) {
+            body += ARCHITECTURE_KEY + KEY_SEPARATOR;
+            for (String arch : architectures)
+                body += " " + arch;
+            body += "\n";
+        }
+
+        body += version != null ? bodyLine(VERSION_KEY, version.getFullVersion()) : "";
+
+        if (distributions != null && distributions.getCopy() != null && !distributions.getCopy().isEmpty()) {
+            body += DISTRIBUTION_KEY + KEY_SEPARATOR;
+            for (String dist : distributions.getCopy())
+                body += " " + dist;
+            body += "\n";
+        }
+
+        body += urgency != null ? bodyLine(URGENCY_KEY, urgency) : "";
+
+        if (maintainers != null && !maintainers.isEmpty()) {
+            body += MAINTAINER_KEY + KEY_SEPARATOR;
+            for (InternetAddress maint : maintainers)
+                body += " " + maint.getPersonal() + " <" + maint.getAddress() + ">,";
+            body += "\n";
+        }
+
+        body += urgency != null ? bodyLine(URGENCY_KEY, urgency) : "";
+        body += changedBy != null ? bodyLine(CHANGED_BY_KEY, changedBy.getPersonal() + " <" + changedBy.getAddress() + ">") : "";
+        body += closes != null ? bodyLine(CLOSES_KEY, closes) : "";
+
+        if (shortDesc != null) {
+            body += bodyLine(DESCRIPTION_KEY, shortDesc);
+            body += longDesc != null ? longDesc + "\n" : "";
+        }
+
+        body += changes != null ? bodyLine(CHANGES_KEY, "") + changes + "\n" : "";
+
+        if (files != null && !files.getFileEntries().isEmpty()) {
+
+            body += bodyLine(CHECKSUMS_SHA1_KEY, "");
+            if (files != null)
+                for (DebianFileEntry f : files.getFileEntries())
+                    body += " " + f.getSha1() + " " + f.getSize() + " " + f.getName() + "\n";
+
+            body += bodyLine(CHECKSUMS_SHA256_KEY, "");
+            if (files != null)
+                for (DebianFileEntry f : files.getFileEntries())
+                    body += " " + f.getSha256() + " " + f.getSize() + " " + f.getName() + "\n";
+
+            body += bodyLine(FILES_KEY, "");
+            if (files != null)
+                for (DebianFileEntry f : files.getFileEntries())
+                    body += " " + f.getMd5() + " " + f.getSize() + " " + f.getSection() + " " + f.getPriority() + " "
+                            + f.getName() + "\n";
+        }
+
+        return body;
     }
 
     /**
-     * Copy all fields from another DebianChanges to this
+     * Parse and validate the file
      * 
-     * @param debianChanges
-     *            The object to copy from
-     * @return Success(true) or fail(false)
+     * @param file
+     *            The file
+     * @return An empty string if it successes or the multi-line error message.
      */
-    public Boolean override(DebianChanges debianChanges) {
-        if (debianChanges == null)
-            return false;
-        this.format = debianChanges.getFormat();
-        this.date = debianChanges.getDate();
-        this.source = debianChanges.getSource();
-        this.binarys = debianChanges.getBinarys();
-        this.architectures = debianChanges.getArchitectures();
-        this.version = debianChanges.getVersion();
-        this.distributions = debianChanges.getDistributions();
-        this.urgency = debianChanges.getUrgency();
-        this.maintainers = debianChanges.getMaintainers();
-        this.changedBy = debianChanges.getChangedBy();
-        this.shortDesc = debianChanges.getShortDesc();
-        this.longDesc = debianChanges.getLongDesc();
-        this.closes = debianChanges.getCloses();
-        this.changes = debianChanges.getChanges();
-        this.files = debianChanges.getFiles();
+    public String read(FilePath file) {
 
-        return true;
+        if (parse(file) == null)
+            return "Fail reading the file";
+
+        String msg = validateAll(file.getParent());
+        if (!msg.isEmpty())
+            return "The validation has erros: " + msg;
+
+        return "";
     }
 
     /**
-     * Parse a '.changes' file.
+     * Read a file and use {@link #parse(String)} to parse the content
      * 
-     * @param dotChangesFile
-     *            The .'changes' file
-     * @param runner
-     *            The runner to log
-     * @return The DebianChanges with the parsed fields
-     * @throws IOException
-     *             If something goes wrong reading the file
-     * @throws DpkgException
-     * @throws InterruptedException
+     * @param file
+     *            The .changes file
+     * @return The same as {@link #parse(String)} or null if there is same
+     *         problem reading the file
      */
-    public static DebianChanges parseChanges(FilePath dotChangesFile, Runner runner) throws IOException, DpkgException,
-            InterruptedException {
+    public List<Pair<String, String>> parse(FilePath file) {
+        if (file == null)
+            return null;
 
-        if (dotChangesFile == null || !dotChangesFile.exists())
-            throw new DpkgException("The .changes file name is empty or not exists");
+        try {
+            return parse(file.readToString());
+        } catch (IOException e1) {
+            e1.printStackTrace();
+            return null;
+        }
+    }
 
-        if (dotChangesFile.isDirectory())
-            throw new DpkgException("The .changes received is a directory");
+    /**
+     * Parse a '.changes' content.
+     * 
+     * @param content
+     *            The content of a .'changes' file
+     * @return A {@link List} with a {@link Pair} that holds the message and the
+     *         rejected line, if all lines are valid the List is empty. Never
+     *         return null;
+     */
+    public List<Pair<String, String>> parse(String content) {
+        if (content == null)
+            content = "";
 
-        DebianChanges debianChanges = new DebianChanges();
+        List<Pair<String, String>> rejected = new ArrayList<Pair<String, String>>();
 
-        Pattern dotChangesPattern = Pattern.compile("([\\w-]+:)\\s*(.*)");
+        ArrayList<String> lines = new ArrayList<String>(Arrays.asList(content.split("\n")));
+        Pattern pattern = Pattern.compile("^([\\w-]+:)\\s*(.*)\\s*$");
+        ListIterator<String> i = lines.listIterator();
 
-        ArrayList<String> dotChangesLines = new ArrayList<String>(Arrays.asList(dotChangesFile.readToString().split("\n")));
+        while (i.hasNext()) {
 
-        ListIterator<String> dotChangesLinesIterator = dotChangesLines.listIterator();
+            String row = i.next();
 
-        while (dotChangesLinesIterator.hasNext()) {
-
-            String row = dotChangesLinesIterator.next();
-
-            if (row.matches(".*-----BEGIN PGP SIGNED MESSAGE-----.*"))
+            if (row.matches(".*-----BEGIN PGP SIGNED MESSAGE-----.*") || row.matches("^\\s*$") || row.matches("(?i)^\\s*HASH:.*"))
                 continue;
 
             if (row.matches(".*-----BEGIN PGP SIGNATURE-----.*"))
                 break;
 
-            Matcher dotChangesMatch = dotChangesPattern.matcher(row);
+            Matcher matcher = pattern.matcher(row);
 
-            if (dotChangesMatch.matches()) {
-                String key = dotChangesMatch.group(1);
-                String data = dotChangesMatch.group(2);
+            if (matcher.matches()) {
+                String key = matcher.group(1).trim();
+                String data;
+                if (matcher.group(2) != null)
+                    data = matcher.group(2).trim();
+                else
+                    data = null;
 
-                if (key.equalsIgnoreCase(DebianChanges.FORMAT_KEY + DebianChanges.KEY_SEPARATOR)) {
-                    debianChanges.setFormat(data);
+                if (key.equalsIgnoreCase(FORMAT_KEY + KEY_SEPARATOR)) {
+                    setFormat(data);
 
-                } else if (key.equalsIgnoreCase(DebianChanges.DATE_KEY + DebianChanges.KEY_SEPARATOR)) {
-                    DateFormat df = DebianChanges.dateFormat;
-                    Date date;
-                    try {
-                        date = df.parse(data);
-                    } catch (ParseException e) {
-                        // ignore
-                        runner.announce("Fail parsing date: " + e.getMessage());
-                        e.printStackTrace();
-                        continue;
-                    }
-                    debianChanges.setDate(date);
-
-                } else if (key.equalsIgnoreCase(DebianChanges.SOURCE_KEY + DebianChanges.KEY_SEPARATOR)) {
-                    debianChanges.setSource(data);
-
-                } else if (key.equalsIgnoreCase(DebianChanges.BINARY_KEY + DebianChanges.KEY_SEPARATOR)) {
-                    debianChanges.setBinarys(data.split("\\s"));
-                    // for (String s : data.split("\\s"))
-                    // logger.println("binary: " + s);
-
-                } else if (key.equalsIgnoreCase(DebianChanges.ARCHITECTURE_KEY + DebianChanges.KEY_SEPARATOR)) {
-                    debianChanges.setArchitectures(data.split("\\s"));
-                    // for (String s : data.split("\\s"))
-                    // logger.println("arch: " + s);
-
-                } else if (key.equalsIgnoreCase(DebianChanges.VERSION_KEY + DebianChanges.KEY_SEPARATOR)) {
-                    Version version = new Version();
-                    try {
-                        version.parseVersion(data);
-                    } catch (VersionFormatException e) {
-                        runner.announce("Fail parsing version: " + e.getMessage());
-                        e.printStackTrace();
-                    }
-                    debianChanges.setVersion(version);
-
-                } else if (key.equalsIgnoreCase(DebianChanges.DISTRIBUTION_KEY + DebianChanges.KEY_SEPARATOR)) {
-                    debianChanges.setDistributions(data.split("\\s"));
-                    // for (String s : data.split("\\s"))
-                    // logger.println("distr: " + s);
-
-                } else if (key.equalsIgnoreCase(DebianChanges.URGENCY_KEY + DebianChanges.KEY_SEPARATOR)) {
-                    debianChanges.setUrgency(data);
-
-                } else if (key.equalsIgnoreCase(DebianChanges.MAINTAINER_KEY + DebianChanges.KEY_SEPARATOR)) {
-
-                    Pattern maintainerPattern = Pattern.compile("([^<]*)\\s*<(.*)");
-
-                    for (String maintainer : data.split(">\\s*")) {
-                        Matcher maintainerMatch = maintainerPattern.matcher(maintainer);
-                        if (maintainerMatch.matches())
-                            debianChanges.addMaintainer(maintainerMatch.group(1), maintainerMatch.group(2));
-                    }
-
-                } else if (key.equalsIgnoreCase(DebianChanges.CHANGED_BY_KEY + DebianChanges.KEY_SEPARATOR)) {
-
-                    Pattern changedByPattern = Pattern.compile("([^<]*)\\s*<([^>]*)>");
-                    Matcher changedByMatch = changedByPattern.matcher(data);
-
-                    if (changedByMatch.matches())
-                        debianChanges.setChangedBy(changedByMatch.group(1), changedByMatch.group(2));
-
-                } else if (key.equalsIgnoreCase(DebianChanges.DESCRIPTION_KEY + DebianChanges.KEY_SEPARATOR)) {
-                    debianChanges.setShortDesc(data);
-                    String longDesc = getTextBlock(dotChangesLinesIterator);
-                    debianChanges.setLongDesc(longDesc);
-                    // logger.println("long desc: '" + longDesc + "'");
-
-                } else if (key.equalsIgnoreCase(DebianChanges.CLOSES_KEY + DebianChanges.KEY_SEPARATOR)) {
-                    debianChanges.setCloses(data.split("\\s*"));
-                    // for (String s : data.split("\\s"))
-                    // logger.println("closes: " + s);
-
-                } else if (key.equalsIgnoreCase(DebianChanges.CHANGES_KEY + DebianChanges.KEY_SEPARATOR)) {
-                    String changesText = getTextBlock(dotChangesLinesIterator);
-                    debianChanges.setChanges(changesText);
-                    // logger.println("changes: " + changesText);
-
-                } else if (key.equalsIgnoreCase(DebianChanges.CHECKSUMS_SHA1_KEY + DebianChanges.KEY_SEPARATOR)
-                        || key.equalsIgnoreCase(DebianChanges.CHECKSUMS_SHA256_KEY + DebianChanges.KEY_SEPARATOR)
-                        || key.equalsIgnoreCase(DebianChanges.FILES_KEY + DebianChanges.KEY_SEPARATOR)) {
-                    HashMap<String, DebianChanges.ChangeFile> fileEntrys;
-
-                    if (debianChanges.getFiles() != null)
-                        fileEntrys = (HashMap<String, ChangeFile>) debianChanges.getFiles();
+                } else if (key.equalsIgnoreCase(DATE_KEY + KEY_SEPARATOR)) {
+                    DebianDate date = new DebianDate();
+                    if (date.setDate(data))
+                        setDate(date);
                     else
-                        fileEntrys = new HashMap<String, ChangeFile>();
+                        rejected.add(new ImmutablePair<String, String>("Ignoring invalid date '" + data + "'", row));
 
-                    String filesText = getTextBlock(dotChangesLinesIterator);
-                    // logger.println("files: " + filesText);
+                } else if (key.equalsIgnoreCase(SOURCE_KEY + KEY_SEPARATOR)) {
+                    setSource(data);
+
+                } else if (key.equalsIgnoreCase(BINARY_KEY + KEY_SEPARATOR)) {
+                    setBinarys(new ArrayList<String>(Arrays.asList(data.split("\\s+"))));
+
+                } else if (key.equalsIgnoreCase(ARCHITECTURE_KEY + KEY_SEPARATOR)) {
+                    setArchitectures(new ArrayList<String>(Arrays.asList(data.split("\\s+"))));
+
+                } else if (key.equalsIgnoreCase(VERSION_KEY + KEY_SEPARATOR)) {
+                    DebianVersion v = new DebianVersion();
+
+                    if (v.parseVersion(data))
+                        setVersion(v);
+                    else
+                        rejected.add(new ImmutablePair<String, String>("Ignoring invalid version '" + data + "'", row));
+
+                } else if (key.equalsIgnoreCase(DISTRIBUTION_KEY + KEY_SEPARATOR)) {
+                    DebianDistributions dists = new DebianDistributions();
+
+                    for (String dist : data.split("\\s+"))
+                        if (!dists.merge(dist))
+                            rejected.add(new ImmutablePair<String, String>("Rejected distribution '" + dist + "'", row));
+
+                    setDistributions(dists);
+
+                } else if (key.equalsIgnoreCase(URGENCY_KEY + KEY_SEPARATOR)) {
+                    setUrgency(data);
+
+                } else if (key.equalsIgnoreCase(MAINTAINER_KEY + KEY_SEPARATOR)) {
+                    try {
+                        setMaintainers(data);
+                    } catch (AddressException e) {
+                        rejected.add(new ImmutablePair<String, String>("Fail parsing maintainers", row));
+                        e.printStackTrace();
+                    }
+
+                } else if (key.equalsIgnoreCase(CHANGED_BY_KEY + KEY_SEPARATOR)) {
+
+                    if (!setChangedBy(data))
+                        rejected.add(new ImmutablePair<String, String>("Ignoring invalid changed-by", row));
+
+                } else if (key.equalsIgnoreCase(DESCRIPTION_KEY + KEY_SEPARATOR)) {
+
+                    setShortDesc(data);
+                    setLongDesc(getTextBlock(i));
+
+                } else if (key.equalsIgnoreCase(CLOSES_KEY + KEY_SEPARATOR)) {
+
+                    setCloses(new ArrayList<String>(Arrays.asList(data.split("\\s*"))));
+
+                } else if (key.equalsIgnoreCase(CHANGES_KEY + KEY_SEPARATOR)) {
+
+                    setChanges(getTextBlock(i));
+
+                } else if (key.equalsIgnoreCase(CHECKSUMS_SHA1_KEY + KEY_SEPARATOR)
+                        || key.equalsIgnoreCase(CHECKSUMS_SHA256_KEY + KEY_SEPARATOR)
+                        || key.equalsIgnoreCase(FILES_KEY + KEY_SEPARATOR)) {
+                    DebianFiles files;
+
+                    if (getFiles() != null)
+                        files = getFiles();
+                    else
+                        files = new DebianFiles();
+
+                    String filesText = getTextBlock(i);
 
                     for (String fileRow : filesText.split("\\n")) {
-                        // logger.println("file line: " + fileRow);
 
-                        DebianChanges.ChangeFile file;
+                        DebianFileEntry entry = new DebianFileEntry();
+                        if (entry.parseLine(fileRow))
+                            files.mergeEntryByName(entry);
+                        else
+                            rejected.add(new ImmutablePair<String, String>("Ignoring invalid file line", fileRow));
 
-                        Pattern sha = Pattern.compile("^ +([^ ]+) +([^ ]+) +([^ ]+) *$");
-                        Pattern md5 = Pattern.compile("^ +([^ ]+) +([^ ]+) +([^ ]+) +([^ ]+) +([^ ]+) *$");
-                        Matcher mChangeFile = sha.matcher(fileRow);
-                        if (!mChangeFile.matches())
-                            mChangeFile = md5.matcher(fileRow);
-
-                        if (mChangeFile.matches()) {
-                            // validar porque este loop esta pegando null
-                            // for (int ii = 1; ii <=
-                            // mChangeFile.groupCount(); ii++) {
-                            // runner.announce("file field " +
-                            // String.valueOf(ii) + ": " +
-                            // mChangeFile.group(ii));
-                            // }
-                            // if the file (aka last group) exists, edit
-                            // that entry
-                            if (fileEntrys.containsKey(mChangeFile.group(mChangeFile.groupCount())))
-                                file = fileEntrys.get(mChangeFile.group(mChangeFile.groupCount()));
-                            else
-                                file = new DebianChanges.ChangeFile();
-
-                            if (key.equalsIgnoreCase("Checksums-Sha1:"))
-                                file.setSha1(mChangeFile.group(1));
-                            else if (key.equalsIgnoreCase("Checksums-Sha256:"))
-                                file.setSha256(mChangeFile.group(1));
-                            else if (key.equalsIgnoreCase("Files:"))
-                                file.setMd5(mChangeFile.group(1));
-
-                            file.setSize(Long.decode(mChangeFile.group(2)));
-
-                            if (mChangeFile.groupCount() == 3)
-                                file.setName(mChangeFile.group(3));
-                            else if (mChangeFile.groupCount() == 5) {
-                                file.setSection(mChangeFile.group(3));
-                                file.setPriority(mChangeFile.group(4));
-                                file.setName(mChangeFile.group(5));
-                            }
-
-                            fileEntrys.put(file.getName(), file);
-                        } else {
-                            // runner.announce("file fields not matched");
-                        }
                     }
-                    debianChanges.setFiles(fileEntrys);
-
+                    setFiles(files);
                 } else {
-                    // runner.announce("Match but no key found");
+                    rejected.add(new ImmutablePair<String, String>("Ignoring an invalid line", row));
                 }
             } else {
-                // runner.announce("line not matched: " + row);
+                rejected.add(new ImmutablePair<String, String>("Ignoring an invalid line", row));
             }
         }
-        return debianChanges;
+        return rejected;
     }
 
     private static String getTextBlock(ListIterator<String> fileIterator) {
@@ -646,94 +487,157 @@ public class DebianChanges {
         return block;
     }
 
-    // TODO the validate method should validate fields
-    private static Boolean validate(DebianChanges changes, FilePath rootDir, Runner runner) throws IOException,
-            InterruptedException {
-        // TODO test messages
-        String msgPrefix = "Validating .changes parse process:";
+    // TODO the validate method should validate all fields
+    /**
+     * Validate all required fields and files data
+     * 
+     * @param basePath
+     *            The location where the files are
+     * @return An empty string if there is no problem or the error message
+     */
+    private String validateAll(FilePath basePath) {
 
-        if (changes == null || rootDir == null) {
-            runner.announce("{0} Internal error (changes or rootDir is null)!", msgPrefix);
-            return false;
-        }
+        if (basePath == null)
+            return ("Invalid directory '" + basePath + "'");
 
-        if (changes.getDistributions() == null) {
-            runner.announce("{0} None distributions found.", msgPrefix);
-            return false;
-        } else if (changes.getDistributions().length < 1) {
-            runner.announce("{0} None distributions found.", msgPrefix);
-            return false;
-        }
+        if (getDistributions() == null || getDistributions().getCopy().size() <= 0)
+            return ("None distributions found.");
 
-        for (String dist : changes.getDistributions()) {
-            if (dist.equals("UNRELEASED")) {
-                runner.announce("{0} Distribution UNRELEASED found", msgPrefix);
-                return false;
-            }
-        }
+        for (String dist : getDistributions().getCopy())
+            if (dist.equals("UNRELEASED"))
+                return ("Distribution UNRELEASED found.");
 
-        if (changes.getFiles() == null) {
-            runner.announce("{0} None file found.", msgPrefix);
-            return false;
-        }
+        if (getFiles() == null || getFiles().getFileEntries() == null || getFiles().getFileEntries().size() <= 0)
+            return ("None file to publish.");
 
-        for (DebianChanges.ChangeFile changeFile : changes.getFiles().values()) {
+        for (DebianFileEntry changeFile : getFiles().getFileEntries()) {
 
-            if (changeFile.getName() == null) {
-                runner.announce("{0} File name is empty.", msgPrefix);
-                return false;
-            }
-            runner.announce("Validating file " + changeFile.getName() + " size and digests.");
+            if (changeFile.getName() == null)
+                return ("There is a file entry without a name.");
 
-            FilePath file = rootDir.child(changeFile.getName());
-            if (!validateSize(changeFile.getSize(), file)) {
-                runner.announce("{0} Size of {1} not match ({2})", msgPrefix, file.getRemote(), file.length());
-                return false;
-            } else if (!validateMd5(changeFile.getMd5(), file)) {
-                runner.announce("{0} Md5 of {1} not match ({2})", msgPrefix, file.getRemote(), DigestUtils.md5(file.read()));
-                return false;
-            } else if (!validateSha1(changeFile.getSha1(), file)) {
-                runner.announce("{0} Sha1 of {1} not match ({2})", msgPrefix, file.getRemote(), DigestUtils.sha1Hex(file.read()));
-                return false;
-            } else if (!validateSha256(changeFile.getSha256(), file)) {
-                runner.announce("{0} Sha256 of {1} not match ({2}) ", msgPrefix, file.getRemote(),
-                        DigestUtils.sha256Hex(file.read()));
-                return false;
-            }
+            FilePath file = basePath.child(changeFile.getName());
+
+            if (!validateSize(changeFile.getSize(), file))
+                return ("File '" + file + "' has incorrect size.");
+
+            if (!validateMd5(changeFile.getMd5(), file))
+                return ("File '" + file + "' has incorrect md5.");
+
+            if (!validateSha1(changeFile.getSha1(), file))
+                return ("File '" + file + "' has incorrect sha1");
+
+            if (!validateSha256(changeFile.getSha256(), file))
+                return ("File '" + file + "' has incorrect sha256");
 
         }
-        return true;
+        return "";
     }
 
-    public static boolean validateMd5(String md5, FilePath file) throws IOException {
-        if (md5.equals("") || md5 == null)
+    /**
+     * Validate the md5 hash
+     * 
+     * @param md5
+     *            The hash
+     * @param file
+     *            The file
+     * @return True the hash is equal, false if is not, null for file reading
+     *         problems
+     */
+    public static Boolean validateMd5(String md5, FilePath file) {
+        if (md5 == null || md5.equals(""))
             return false;
-        if (md5.equals(DigestUtils.md5Hex(file.read())))
-            return true;
+        if (file == null)
+            return null;
+
+        try {
+            if (md5.equals(DigestUtils.md5Hex(file.read())))
+                return true;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
         return false;
     }
 
-    public static boolean validateSha1(String sha1, FilePath file) throws IOException {
-        if (sha1.equals("") || sha1 == null)
+    /**
+     * Validate the sha1 hash
+     * 
+     * @param sha1
+     *            The hash
+     * @param file
+     *            The file
+     * @return True the hash is equal, false if is not, null for file reading
+     *         problems
+     */
+    public static Boolean validateSha1(String sha1, FilePath file) {
+        if (sha1 == null || sha1.equals(""))
             return false;
-        if (sha1.equals(DigestUtils.sha1Hex(file.read())))
-            return true;
+        if (file == null)
+            return null;
+
+        try {
+            if (sha1.equals(DigestUtils.sha1Hex(file.read())))
+                return true;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
         return false;
     }
 
-    public static boolean validateSha256(String sha256, FilePath file) throws IOException {
-        if (sha256.equals("") || sha256 == null)
+    /**
+     * Validate the sha256 hash
+     * 
+     * @param sha256
+     *            The hash
+     * @param file
+     *            The file
+     * @return True the hash is equal, false if is not, null for file reading
+     *         problems
+     */
+    public static Boolean validateSha256(String sha256, FilePath file) {
+        if (sha256 == null || sha256.equals(""))
             return false;
-        if (sha256.equals(DigestUtils.sha256Hex(file.read())))
-            return true;
+        if (file == null)
+            return null;
+
+        try {
+            if (sha256.equals(DigestUtils.sha256Hex(file.read())))
+                return true;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
         return false;
     }
 
-    public static boolean validateSize(Long size, FilePath file) throws IOException, InterruptedException {
+    /**
+     * Validate the file size
+     * 
+     * @param size
+     *            The size to compare
+     * @param file
+     *            The file
+     * @return True the size is equal, false if is not, null for file reading
+     *         problems
+     */
+    public static Boolean validateSize(Long size, FilePath file) {
         if (size == null)
             return false;
-        if (file.length() == size)
-            return true;
+        if (file == null)
+            return null;
+
+        try {
+            if (file.length() == size)
+                return true;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            return null;
+        }
         return false;
     }
+
 }
