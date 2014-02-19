@@ -71,16 +71,18 @@ public class DebianPackageBuilder extends Builder {
     private final boolean useTagAndBuild;
     private final String distribution;
     private final String buildCommand;
+    private final String dchDist;
 
     @DataBoundConstructor
     public DebianPackageBuilder(String pathToDebian, Boolean generateChangelog, Boolean buildEvenWhenThereAreNoChanges,
-            Boolean useTagAndBuild, String distribution, String buildCommand) {
+            Boolean useTagAndBuild, String distribution, String buildCommand, String dchDist) {
         this.pathToDebian = pathToDebian;
         this.generateChangelog = generateChangelog;
         this.buildEvenWhenThereAreNoChanges = buildEvenWhenThereAreNoChanges;
         this.useTagAndBuild = useTagAndBuild;
         this.distribution = distribution;
         this.buildCommand = buildCommand;
+        this.dchDist = dchDist;
     }
 
     @Override
@@ -521,40 +523,85 @@ public class DebianPackageBuilder extends Builder {
         return message.replaceAll("\\'", "");
     }
 
+    /**
+     * @param distributor
+     *            The distributor name to use
+     * @return The dch parameter with the distributor if the parameter is
+     *         allowed, an empty string if not and null if the option is invalid
+     */
+    private String getDchDistributor(String distributor) {
+        if (distributor == null)
+            distributor = "";
+        else if (!distributor.isEmpty())
+            distributor = " " + distributor;
+
+        if (dchDist == null || dchDist.equals("none"))
+            return "";
+
+        if (dchDist.equals("distributor"))
+            return "--distributor" + distributor;
+        if (dchDist.equals("vendor"))
+            return "--vendor" + distributor;
+        if (dchDist.equals("none"))
+            return "";
+        return null;
+    }
+
     private void createChangelog(Runner runner, String remoteDebian, String packageName) throws InterruptedException,
             DebianizingException {
         if (packageName == null || packageName.isEmpty())
             throw new DebianizingException("Fail creating the changelog: Invalid package name");
 
+        String dist = getDchDistributor("debian");
+        if (dist == null)
+            dist = "";
+
         runner.announce("Creating changelog");
         runner.runCommand(
-                "export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 --create --package {3} --vendor debian --newVersion 0.0 ''{4}''",
-                getDescriptor().getAccountName(), "Jenkins", remoteDebian.replaceAll("/[^/]+$", ""), packageName, "initial");
+                "export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 --create --package {3} {4} --newVersion 0.0 ''{5}''",
+                getDescriptor().getAccountName(), "Jenkins", remoteDebian.replaceAll("/[^/]+$", ""), packageName, dist, "initial");
     }
 
     private void startVersion(Runner runner, String remoteDebian, VersionHelper helper, String message, String distribution)
             throws InterruptedException, DebianizingException {
         runner.announce("Starting version <{0}> with message <{1}>", helper, clearMessage(message));
-        String addDistri = "";
+
+        String distributor = getDchDistributor("debian");
+        if (distributor == null)
+            distributor = "";
+
+        String addDistribution = "";
         if (distribution != null && !distribution.isEmpty())
-            addDistri = "--distribution '" + distribution + "'";
+            addDistribution = "--distribution '" + distribution + "'";
+
         runner.runCommand(
-                "export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 -b --vendor debian {3} --newVersion {4} ''{5}''",
-                getDescriptor().getAccountName(), "Jenkins", remoteDebian, addDistri, helper, clearMessage(message));
+                "export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 -b {3} {4} --newVersion {5} ''{6}''",
+                getDescriptor().getAccountName(), "Jenkins", remoteDebian, distributor, addDistribution, helper,
+                clearMessage(message));
     }
 
     private void addChange(Runner runner, String remoteDebian, Change change) throws InterruptedException, DebianizingException {
+
+        String dist = getDchDistributor("debian");
+        if (dist == null)
+            dist = "";
+
         runner.announce("Got changeset entry: {0} by {1}", clearMessage(change.getMessage()), change.getAuthor());
         runner.runCommand(
-                "export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 --vendor debian --append ''{3}''",
-                getDescriptor().getAccountName(), change.getAuthor(), remoteDebian, clearMessage(change.getMessage()));
+                "export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 {3} --append ''{4}''",
+                getDescriptor().getAccountName(), change.getAuthor(), remoteDebian, dist, clearMessage(change.getMessage()));
     }
 
     private void releaseVersion(Runner runner, String remoteDebian) throws InterruptedException, DebianizingException {
+
+        String dist = getDchDistributor("debian");
+        if (dist == null)
+            dist = "";
+
         runner.announce("Releasing version");
         runner.runCommand(
-                "export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 -b --vendor debian --release ''{3}''",
-                getDescriptor().getAccountName(), "Jenkins", remoteDebian, "release");
+                "export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 -b {3} --release ''{4}''",
+                getDescriptor().getAccountName(), "Jenkins", remoteDebian, dist, "release");
     }
 
     /**
@@ -757,6 +804,10 @@ public class DebianPackageBuilder extends Builder {
 
     public String getBuildCommand() {
         return buildCommand;
+    }
+
+    public String getDchDist() {
+        return dchDist;
     }
 
 }

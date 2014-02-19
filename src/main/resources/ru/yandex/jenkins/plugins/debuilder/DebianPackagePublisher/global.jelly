@@ -8,6 +8,7 @@
 		</f:entry>
 
 		<f:entry title="${%Repositories}">
+		
 			<f:repeatable name="repositories" var="repo"
 				items="${descriptor.repositories}" noAddButton="false" header="${%Repository}">
 				<table width="100%">
@@ -56,6 +57,7 @@
 							<f:repeatableDeleteButton />
 						</div>
 					</f:entry>
+					
 				</table>
 			</f:repeatable>
 		</f:entry>
