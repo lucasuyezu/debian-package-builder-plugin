@@ -6,6 +6,7 @@ import hudson.FilePath;
 import hudson.Launcher;
 import hudson.model.BuildBadgeAction;
 import hudson.model.BuildListener;
+import hudson.model.Environment;
 import hudson.model.Result;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
@@ -204,6 +205,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
         Runner runner = new DebUtils.Runner(build, launcher, listener, PREFIX);
 
         List<String> modules = new ArrayList<String>();
+        Map<String, DebianChanges> moduleChange = new HashMap<String, DebianChanges>();
 
         if (republish) {
             boolean someChangesFound = false;
@@ -243,7 +245,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
                     }
 
                     if (changes.getFiles() == null || changes.getFiles().getFileEntries() == null) {
-                        runner.announce("None files in .changes");
+                        runner.announce("None file in .changes");
                         return false;
                     }
 
@@ -277,6 +279,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
                         runner.announce("Fail rewriting the .changes");
                     }
                     modules.add(tmpDir.getRemote());
+                    moduleChange.put(tmpDir.getRemote(), changes);
                 }
             }
 
@@ -296,7 +299,8 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 
             Map<String, DebianBadge> badges = new HashMap<String, DebianBadge>();
 
-            // Get all badges from this build. (A badge is a mark when the was
+            // Get all badges from this build. (A badge is a mark when the build
+            // was
             // successful)
             for (BuildBadgeAction action : build.getBadgeActions()) {
                 if (action instanceof DebianBadge) {
@@ -361,8 +365,16 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
                     // TODO execute the upload process on the slave machine
                     if (!republish)
                         Dupload.start(changelog, dotChangeBasePath, duploadFTP, repo.getIncoming(), "$distribution$", runner);
-                    else
+                    else {
                         Dupload.start(modulePath.list("*.changes")[0], duploadFTP, repo.getIncoming(), "$distribution$", runner);
+                        DebianChanges changes = moduleChange.get(module);
+
+                        if (changes != null && changes.getSource() != null && changes.getVersion() != null) {
+                            EnvVars envVars = new EnvVars("DEBIAN_SOURCE_PACKAGE", changes.getSource(), "DEBIAN_PACKAGE_VERSION",
+                                    changes.getVersion().toString());
+                            build.getEnvironments().add(Environment.create(envVars));
+                        }
+                    }
 
                     wereBuilds = true;
                 }
