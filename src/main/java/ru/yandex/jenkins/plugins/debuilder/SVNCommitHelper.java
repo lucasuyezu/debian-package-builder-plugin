@@ -14,7 +14,7 @@ import org.tmatesoft.svn.core.SVNException;
 import org.tmatesoft.svn.core.auth.ISVNAuthenticationProvider;
 import org.tmatesoft.svn.core.wc.SVNCommitPacket;
 
-public class SVNCommitHelper implements Serializable , Callable<String, DebianizingException>{
+public class SVNCommitHelper implements Serializable, Callable<String, DebianizingException> {
 	private static final long serialVersionUID = 1L;
 
 	private final ISVNAuthenticationProvider provider;
@@ -31,7 +31,7 @@ public class SVNCommitHelper implements Serializable , Callable<String, Debianiz
 	public String call() throws DebianizingException {
 		SvnClientManager clientManager = SubversionSCM.createClientManager(provider);
 		try {
-			SVNCommitPacket changeset = clientManager.getCommitClient().doCollectCommitItems(new File[] {new File(path)}, false, true, SVNDepth.INFINITY, null);
+			SVNCommitPacket changeset = clientManager.getCommitClient().doCollectCommitItems(new File[] { new File(path) }, false, true, SVNDepth.INFINITY, null);
 			if (changeset != SVNCommitPacket.EMPTY) {
 				SVNCommitInfo commitInfo = clientManager.getCommitClient().doCommit(changeset, false, commitMessage);
 
