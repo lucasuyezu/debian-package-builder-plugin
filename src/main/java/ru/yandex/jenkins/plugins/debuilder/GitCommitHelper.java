@@ -69,6 +69,6 @@ public class GitCommitHelper implements FileCallable<Boolean> {
 		} else {
 			return false;
 		}
-
 	}
+
 }

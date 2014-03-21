@@ -33,6 +33,7 @@ public class VersionHelper {
 	 */
 	public VersionHelper(String version, char separatorCharacter) {
 		this(version.split("\\" + separatorCharacter), "" + separatorCharacter);
+
 	}
 
 	/**
@@ -106,9 +107,9 @@ public class VersionHelper {
 
 	/**
 	 * Replace the last numeric element.
-	 * If there is no numeric element add the new version at the end
+	 * If there is no numeric element, add the new version at the end.
 	 * @param newVersion
-	 *            The new minor vesion
+	 *            The new minor version
 	 */
 	public void setMinorVersion(int newVersion) {
 		String versionElement = Integer.toString(newVersion);

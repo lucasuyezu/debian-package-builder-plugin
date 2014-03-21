@@ -1,17 +1,12 @@
-<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define"
-	xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
-	<f:entry title="Path to 'debian' catalog" field="pathToDebian">
-		<f:textbox />
-	</f:entry>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+  <f:entry title="Path to 'debian' catalog" field="pathToDebian">
+    <f:textbox />
+  </f:entry>
+  <f:optionalBlock name="generateChangelog" title="${%Generate changelog?}" checked="${instance.generateChangelog}" inline="true">
 
-	<f:optionalBlock name="generateChangelog" title="${%Generate changelog?}"
-		checked="${instance.generateChangelog}" inline="true">
-
-		<f:entry
-			title="${%Build automatically even if there are no changes in the package}"
-			field="buildEvenWhenThereAreNoChanges">
-			<f:checkbox />
-		</f:entry>
+    <f:entry title="${%Build automatically even if there are no changes in the package}" field="buildEvenWhenThereAreNoChanges">
+      <f:checkbox />
+    </f:entry>
 
 		<f:entry title="${%Use SCM tags and append build}" field="useTagAndBuild">
 			<f:checkbox checked="${instance.useTagAndBuild}" default="unchecked" />
@@ -22,23 +17,19 @@
 			<f:textbox />
 		</f:entry>
 
-	</f:optionalBlock>
+  </f:optionalBlock>
 
-	<f:entry title="${%How dch override the distributor?}" field="dchDist">
-		<select name="dchDist">
-			<f:option value="distributor" selected="${instance.dchDist=='distributor'}">--distributor
-			</f:option>
-			<f:option value="vendor" selected="${instance.dchDist=='vendor'}">--vendor</f:option>
-			<f:option value="none" selected="${instance.dchDist=='none'}">do not have this option
-			</f:option>
-		</select>
-	</f:entry>
+  <f:entry title="${%How dch override the distributor?}" field="dchDist">
+    <select name="dchDist">
+      <f:option value="distributor" selected="${instance.dchDist=='distributor'}">--distributor</f:option>
+      <f:option value="vendor" selected="${instance.dchDist=='vendor'}">--vendor</f:option>
+      <f:option value="none" selected="${instance.dchDist=='none'}">do not have this option</f:option>
+    </select>
+  </f:entry>
 
-	<f:advanced>
-
-		<f:entry title="${%Custom build command}" field="buildCommand">
-			<f:textarea />
-		</f:entry>
-
-	</f:advanced>
+  <f:advanced>
+    <f:entry title="${%Custom build command}" field="buildCommand">
+      <f:textarea />
+    </f:entry>
+  </f:advanced>
 </j:jelly>
