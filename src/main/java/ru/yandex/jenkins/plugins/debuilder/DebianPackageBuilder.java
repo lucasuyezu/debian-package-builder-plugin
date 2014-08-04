@@ -125,6 +125,10 @@ public class DebianPackageBuilder extends Builder {
 				writeChangelog(build, listener, remoteDebian, runner, changes, distribution);
 			}
 
+			// Setting the variables that exposes the package name and version to the user environment
+			EnvVars envVars = new EnvVars(DEBIAN_SOURCE_PACKAGE, source, DEBIAN_PACKAGE_VERSION, latestVersion);
+			build.getEnvironments().add(Environment.create(envVars));
+			
 			if (buildCommand != null && !buildCommand.isEmpty()) {
 				runner.announce("Using user build command");
 				if (!runner.runCommandForResult(buildCommand, true))
@@ -141,9 +145,7 @@ public class DebianPackageBuilder extends Builder {
 
 			// TODO add the source name of the package to use as a key when
 			// getting versions
-			build.addAction(new DebianBadge(latestVersion, remoteDebian));
-			EnvVars envVars = new EnvVars(DEBIAN_SOURCE_PACKAGE, source, DEBIAN_PACKAGE_VERSION, latestVersion);
-			build.getEnvironments().add(Environment.create(envVars));
+			build.addAction(new DebianBadge(source, latestVersion, remoteDebian, getRelativeDebianPath(workspace)));
 		} catch (InterruptedException e) {
 			logger.println(MessageFormat.format(ABORT_MESSAGE, PREFIX, e.getMessage()));
 			return false;
@@ -209,6 +211,17 @@ public class DebianPackageBuilder extends Builder {
 			return workspace.child(pathToDebian).child("debian").getRemote();
 		}
 	}
+	
+	/**
+	 * Return the path to the 'debian' directory, relative to the workspace
+	 *
+	 * @param workspace
+	 *            The root of the build workspace
+	 * @return The path to the 'debian' dir, relative to the workspace
+	 */
+	public String getRelativeDebianPath(FilePath workspace) {
+		return (getRemoteDebian(workspace).replace(workspace.getRemote(), ""));
+	}
 
 	/**
 	 * Parses changelog and updates it with next version and it's changes
@@ -269,14 +282,31 @@ public class DebianPackageBuilder extends Builder {
 					}
 				}
 
+				// Walk throw last builds, to get the last DebianBadge and use its version
 				builds: for (AbstractBuild prevBuild = build.getPreviousBuild(); prevBuild != null; prevBuild = prevBuild.getPreviousBuild()) {
 
+					// Find the DebianBadges
 					for (Object action : prevBuild.getBadgeActions()) {
 						if (action instanceof DebianBadge) {
 							DebianBadge badge = (DebianBadge) action;
-							if (badge.getModule().equals(remoteDebian)) {
-								if (DebianVersion.versionTextCompare(choosedVersion, badge.getVersion()) < 0)
+							
+							String badgeModulePath = badge.getModule();
+							String modulePath = remoteDebian;
+							
+							// If the badge has the new relativeModule field use it to compare
+							if (badge.getRelativeModule() != null && badge.getRelativeModule() != "") {
+								badgeModulePath = badge.getRelativeModule();
+								modulePath = getRelativeDebianPath(build.getWorkspace());
+							}
+
+							/*
+							 * Only compare versions between equal modules paths since its possible to build
+							 *  more than one package in the same build
+							 */
+							if (badgeModulePath.equals(modulePath)) {
+								if (DebianVersion.versionTextCompare(choosedVersion, badge.getVersion()) < 0) {
 									choosedVersion = badge.getVersion();
+								}
 								break builds;
 							}
 						}

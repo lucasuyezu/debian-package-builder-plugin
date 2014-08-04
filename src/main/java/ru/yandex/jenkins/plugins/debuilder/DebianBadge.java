@@ -9,8 +9,26 @@ import hudson.model.BuildBadgeAction;
 
 @ExportedBean
 public class DebianBadge implements BuildBadgeAction {
+	/**
+	 * The full path to the debian directory
+	 */
 	private String module = "";
+	
+	/**
+	 * The path to the debian directory relative to workspace
+	 */
+	private String relativeModule = "";
+	
+	/**
+	 * The version of this badge 
+	 */
 	private String version = "";
+	
+	/**
+	 * The name of the package
+	 */
+	private String sourceName = "";
+	
 	private String text = "built deb";
 	private String color = "#000000";
 	private String background = "#FFDA47";
@@ -21,6 +39,14 @@ public class DebianBadge implements BuildBadgeAction {
 		this.version = latestVersion;
 		this.text = MessageFormat.format("deb {0}", latestVersion);
 		this.module = module;
+	}
+	
+	public DebianBadge(String sourceName, String latestVersion, String module, String relativeModule) {
+		this.version = latestVersion;
+		this.text = MessageFormat.format("deb {0}", latestVersion);
+		this.module = module;
+		this.relativeModule = relativeModule;
+		this.sourceName = sourceName;
 	}
 
 	@Override
@@ -63,13 +89,38 @@ public class DebianBadge implements BuildBadgeAction {
 		return borderColor;
 	}
 
+	/**
+	 * Get the {@link #module}
+	 *
+	 * @return {@link #module}
+	 */
 	@Exported
 	public String getModule() {
 		return module;
+	}
+	
+	/**
+	 * Get the {@link #relativeModule}
+	 *
+	 * @return {@link #relativeModule}
+	 */
+	@Exported
+	public String getRelativeModule() {
+	    return relativeModule;
 	}
 
     @Exported
     public String getVersion() {
         return version;
     }
+    
+    /**
+	 * Get the {@link #sourceName}
+	 *
+	 * @return {@link #sourceName}
+	 */
+	@Exported
+	public String getSourceName() {
+	    return sourceName;
+	}
 }
