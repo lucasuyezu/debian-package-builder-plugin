@@ -196,7 +196,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		duploadConf.touch(System.currentTimeMillis()/1000);
 		duploadConf.write(conf, "UTF-8");
 
-		runner.runCommand("sudo mv ''{0}'' ''{1}''", duploadConf.getRemote(), filePath);
+		runner.runCommand("sudo mv ''{0}'' ''{1}''", duploadConf.getRemote().replaceAll("'", "'\''"), filePath.replaceAll("'", "'\''"));
 	}
 
 	@Override
@@ -351,7 +351,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 						runner.runCommand("sudo apt-get -y install dupload devscripts");
 					generateDuploadConf(duploadConfPath, build, runner);
 
-					if (!runner.runCommandForResult("cd ''{0}'' && debrelease", module))
+					if (!runner.runCommandForResult("cd ''{0}'' && debrelease", module.replaceAll("'", "'\''")))
 						throw new DebianizingException("Debrelease failed");
 
 					wereBuilds = true;

@@ -44,7 +44,7 @@ public class Dupload {
     private static Map<String, String> parseChangelog(Runner runner, String remoteDebian) throws DuploadException {
         String changelogOutput;
         try {
-            changelogOutput = runner.runCommandForOutput("cd \"{0}\" && dpkg-parsechangelog -lchangelog", remoteDebian);
+            changelogOutput = runner.runCommandForOutput("cd ''{0}'' && dpkg-parsechangelog -lchangelog", remoteDebian.replaceAll("'", "'\''"));
         } catch (DebianizingException e) {
             e.printStackTrace();
             throw new DuploadException("Fail parsing changelog.");

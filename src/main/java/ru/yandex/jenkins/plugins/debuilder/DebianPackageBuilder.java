@@ -136,9 +136,10 @@ public class DebianPackageBuilder extends Builder {
 
 			} else {
 				if (!getDescriptor().isIgnoreDeps())
-					runner.runCommand("cd ''{0}'' && sudo /usr/lib/pbuilder/pbuilder-satisfydepends --control control", remoteDebian);
+					runner.runCommand("cd ''{0}'' && sudo /usr/lib/pbuilder/pbuilder-satisfydepends --control control", formatParam(remoteDebian));
 
-				runner.runCommand("cd ''{0}'' && debuild --check-dirname-level 0 --no-tgz-check -k{1} -p''gpg --no-tty --passphrase {2}''", remoteDebian, getDescriptor().getAccountName(), getDescriptor().getPassphrase());
+				runner.runCommand("cd ''{0}'' && debuild --check-dirname-level 0 --no-tgz-check -k{1} -p''gpg --no-tty --passphrase {2}''", formatParam(remoteDebian),
+						formatParam(getDescriptor().getAccountName()), formatParam(getDescriptor().getPassphrase()));
 			}
 
 			archiveArtifacts(build, launcher, listener, runner, latestVersion);
@@ -532,6 +533,10 @@ public class DebianPackageBuilder extends Builder {
 	private String clearMessage(String message) {
 		return message.replaceAll("\\'", "");
 	}
+	
+	private String formatParam(String message) {
+		return message.replaceAll("'", "'\''");
+	}
 
 	/**
 	 * @param distributor
@@ -566,8 +571,9 @@ public class DebianPackageBuilder extends Builder {
 			dist = "";
 
 		runner.announce("Creating changelog");
-		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 --create --package {3} {4} --newVersion 0.0 ''{5}''", getDescriptor().getAccountName(), "Jenkins",
-				remoteDebian.replaceAll("/[^/]+$", ""), packageName, dist, "initial");
+		runner.runCommand("export DEBEMAIL=''{0}'' && export DEBFULLNAME=''{1}'' && cd ''{2}'' && dch --check-dirname-level 0 --create --package ''{3}'' ''{4}'' --newVersion 0.0 ''{5}''", 
+				getDescriptor().getAccountName().replaceAll("'", "'\''"), "Jenkins", remoteDebian.replaceAll("/[^/]+$", "").replaceAll("'", "'\''"), packageName.replaceAll("'", "'\''"),
+				dist.replaceAll("'", "'\''"), "initial");
 	}
 
 	private void releaseVersion(Runner runner, String remoteDebian) throws InterruptedException, DebianizingException {
@@ -577,7 +583,8 @@ public class DebianPackageBuilder extends Builder {
 			dist = "";
 
 		runner.announce("Releasing version");
-		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 -b {3} --release ''{4}''", getDescriptor().getAccountName(), "Jenkins", remoteDebian, dist, "release");
+		runner.runCommand("export DEBEMAIL=''{0}'' && export DEBFULLNAME=''{1}'' && cd ''{2}'' && dch --check-dirname-level 0 -b ''{3}'' --release ''{4}''",
+				formatParam(getDescriptor().getAccountName()), "Jenkins", formatParam(remoteDebian), formatParam(dist), "release");
 	}
 
 	private void addChange(Runner runner, String remoteDebian, Change change) throws InterruptedException, DebianizingException {
@@ -587,12 +594,13 @@ public class DebianPackageBuilder extends Builder {
 			dist = "";
 
 		runner.announce("Got changeset entry: {0} by {1}", clearMessage(change.getMessage()), change.getAuthor());
-		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 {3} --append ''{4}''", getDescriptor().getAccountName(), change.getAuthor(), remoteDebian, dist,
-				clearMessage(change.getMessage()));
+		runner.runCommand("export DEBEMAIL=''{0}'' && export DEBFULLNAME=''{1}'' && cd ''{2}'' && dch --check-dirname-level 0 ''{3}'' --append ''{4}''",
+				formatParam(getDescriptor().getAccountName()), formatParam(change.getAuthor()), formatParam(remoteDebian),
+				formatParam(dist), formatParam(change.getMessage()));
 	}
 	
 	private void startVersion(Runner runner, String remoteDebian, VersionHelper helper, String message, String distribution) throws InterruptedException, DebianizingException {
-		runner.announce("Starting version <{0}> with message <{1}>", helper, clearMessage(message));
+		runner.announce("Starting version <{0}> with message <{1}>", helper, formatParam(message));
 
 		String distributor = getDchDistributor("debian");
 		if (distributor == null)
@@ -600,17 +608,17 @@ public class DebianPackageBuilder extends Builder {
 
 		String addDistribution = "";
 		if (distribution != null && !distribution.isEmpty())
-			addDistribution = "--distribution '" + distribution + "'";
+			addDistribution = "--distribution '" + formatParam(distribution) + "'";
 
-		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 -b {3} {4} --newVersion {5} ''{6}''", getDescriptor().getAccountName(), "Jenkins", remoteDebian, distributor,
-				addDistribution, helper, clearMessage(message));
+		runner.runCommand("export DEBEMAIL=''{0}'' && export DEBFULLNAME=''{1}'' && cd ''{2}'' && dch --check-dirname-level 0 -b ''{3}'' ''{4}'' --newVersion ''{5}'' ''{6}''",
+				formatParam(getDescriptor().getAccountName()), "Jenkins", formatParam(remoteDebian), formatParam(distributor), addDistribution, helper, formatParam(message));
 	}
 
 	/**
 	 * FIXME Doesn't work with multi-line entries
 	 */
 	private Map<String, String> parseChangelog(Runner runner, String remoteDebian) throws DebianizingException {
-		String changelogOutput = runner.runCommandForOutput("cd \"{0}\" && dpkg-parsechangelog -lchangelog", remoteDebian);
+		String changelogOutput = runner.runCommandForOutput("cd ''{0}'' && dpkg-parsechangelog -lchangelog", formatParam(remoteDebian));
 		Map<String, String> changelog = new HashMap<String, String>();
 		Pattern changelogFormat = Pattern.compile("(\\w+):\\s*(.*)");
 
@@ -636,15 +644,15 @@ public class DebianPackageBuilder extends Builder {
 
 	private void importKeys(FilePath workspace, Runner runner)
 			throws InterruptedException, DebianizingException, IOException {
-		if (!runner.runCommandForResult("gpg --list-key {0}", getDescriptor().getAccountName())) {
+		if (!runner.runCommandForResult("gpg --list-key ''{0}''", formatParam(getDescriptor().getAccountName()))) {
 			FilePath publicKey = workspace.createTextTempFile("public", "key", getDescriptor().getPublicKey());
-			runner.runCommand("gpg --import ''{0}''", publicKey.getRemote());
+			runner.runCommand("gpg --import ''{0}''", formatParam(publicKey.getRemote()));
 			publicKey.delete();
 		}
 
-		if (!runner.runCommandForResult("gpg --list-secret-key {0}", getDescriptor().getAccountName())) {
+		if (!runner.runCommandForResult("gpg --list-secret-key ''{0}''", formatParam(getDescriptor().getAccountName()))) {
 			FilePath privateKey = workspace.createTextTempFile("private", "key", getDescriptor().getPrivateKey());
-			runner.runCommand("gpg --import ''{0}''", privateKey.getRemote());
+			runner.runCommand("gpg --import ''{0}''", formatParam(privateKey.getRemote()));
 			privateKey.delete();
 		}
 	}
