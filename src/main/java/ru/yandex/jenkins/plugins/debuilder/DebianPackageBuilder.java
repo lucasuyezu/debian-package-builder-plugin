@@ -610,7 +610,7 @@ public class DebianPackageBuilder extends Builder {
 		if (distribution != null && !distribution.isEmpty())
 			addDistribution = "--distribution '" + formatParam(distribution) + "'";
 
-		runner.runCommand("export DEBEMAIL=''{0}'' && export DEBFULLNAME=''{1}'' && cd ''{2}'' && dch --check-dirname-level 0 -b ''{3}'' ''{4}'' --newVersion ''{5}'' ''{6}''",
+		runner.runCommand("export DEBEMAIL=''{0}'' && export DEBFULLNAME=''{1}'' && cd ''{2}'' && dch --check-dirname-level 0 -b ''{3}'' {4} --newVersion ''{5}'' ''{6}''",
 				formatParam(getDescriptor().getAccountName()), "Jenkins", formatParam(remoteDebian), formatParam(distributor), addDistribution, helper, formatParam(message));
 	}
 
