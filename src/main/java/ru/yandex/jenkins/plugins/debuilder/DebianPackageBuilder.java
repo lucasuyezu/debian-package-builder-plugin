@@ -531,11 +531,15 @@ public class DebianPackageBuilder extends Builder {
 	}
 
 	private String clearMessage(String message) {
-		return message.replaceAll("\\'", "");
+		if (message != null)
+			return message.replaceAll("\\'", "");
+		return null;
 	}
-	
-	private String formatParam(String message) {
-		return message.replaceAll("'", "'\\''");
+
+	private String formatParam(String param) {
+		if (param != null)
+			return param.replaceAll("'", "'\\\\''");
+		return null;
 	}
 
 	/**
