@@ -535,7 +535,7 @@ public class DebianPackageBuilder extends Builder {
 	}
 	
 	private String formatParam(String message) {
-		return message.replaceAll("'", "'\''");
+		return message.replaceAll("'", "'\\''");
 	}
 
 	/**
@@ -571,9 +571,8 @@ public class DebianPackageBuilder extends Builder {
 			dist = "";
 
 		runner.announce("Creating changelog");
-		runner.runCommand("export DEBEMAIL=''{0}'' && export DEBFULLNAME=''{1}'' && cd ''{2}'' && dch --check-dirname-level 0 --create --package ''{3}'' ''{4}'' --newVersion 0.0 ''{5}''", 
-				getDescriptor().getAccountName().replaceAll("'", "'\''"), "Jenkins", remoteDebian.replaceAll("/[^/]+$", "").replaceAll("'", "'\''"), packageName.replaceAll("'", "'\''"),
-				dist.replaceAll("'", "'\''"), "initial");
+		runner.runCommand("export DEBEMAIL=''{0}'' && export DEBFULLNAME=''{1}'' && cd ''{2}'' && dch --check-dirname-level 0 --create --package ''{3}'' ''{4}'' --newVersion 0.0 ''{5}''", formatParam(getDescriptor()
+				.getAccountName()), "Jenkins", formatParam(remoteDebian.replaceAll("/[^/]+$", "")), formatParam(packageName), formatParam(dist), "initial");
 	}
 
 	private void releaseVersion(Runner runner, String remoteDebian) throws InterruptedException, DebianizingException {

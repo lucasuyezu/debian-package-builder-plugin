@@ -196,7 +196,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		duploadConf.touch(System.currentTimeMillis()/1000);
 		duploadConf.write(conf, "UTF-8");
 
-		runner.runCommand("sudo mv ''{0}'' ''{1}''", duploadConf.getRemote().replaceAll("'", "'\''"), filePath.replaceAll("'", "'\''"));
+		runner.runCommand("sudo mv ''{0}'' ''{1}''", formatParam(duploadConf.getRemote()), formatParam(filePath));
 	}
 
 	@Override
@@ -351,7 +351,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 						runner.runCommand("sudo apt-get -y install dupload devscripts");
 					generateDuploadConf(duploadConfPath, build, runner);
 
-					if (!runner.runCommandForResult("cd ''{0}'' && debrelease", module.replaceAll("'", "'\''")))
+					if (!runner.runCommandForResult("cd ''{0}'' && debrelease", formatParam(module)))
 						throw new DebianizingException("Debrelease failed");
 
 					wereBuilds = true;
@@ -645,5 +645,9 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 	 */
 	private boolean removeTmpDir(VirtualChannel channel, String path) {
 		return removeTmpDir(new FilePath(channel, path));
+	}
+	
+	private String formatParam(String message) {
+		return message.replaceAll("'", "'\\''");
 	}
 }
