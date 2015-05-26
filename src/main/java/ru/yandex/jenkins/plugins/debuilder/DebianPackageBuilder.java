@@ -386,7 +386,7 @@ public class DebianPackageBuilder extends Builder {
 	}
 
 	private String clearMessage(String message) {
-		return message.replaceAll("\\'", "").replaceAll("--", "");
+		return message.replaceAll("\\'", "").replaceAll("-", "");
 	}
 
 	private void addChange(Runner runner, String remoteDebian, Change change) throws InterruptedException, DebianizingException {
