@@ -147,7 +147,7 @@ public class DebianPackageBuilder extends Builder {
 	/**
 	 * Return the path to the 'debian' directory, where the control build files
 	 * like changelog and rules are stored.
-	 * 
+	 *
 	 * @param workspace
 	 *            The root of the build workspace
 	 * @return The absolute path to the 'debian' dir
@@ -386,7 +386,7 @@ public class DebianPackageBuilder extends Builder {
 	}
 
 	private String clearMessage(String message) {
-		return message.replaceAll("\\'", "");
+		return message.replaceAll("\\'", "").replaceAll("--", "");
 	}
 
 	private void addChange(Runner runner, String remoteDebian, Change change) throws InterruptedException, DebianizingException {
